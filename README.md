@@ -14,6 +14,8 @@ https://TU_URL_DEL_MANIFEST/manifest.json
 5. Instala **JellyInspector**.
 6. Reinicia Jellyfin.
 
+7. Abre el plugin y ve a ajustes,pon tu api de TmDb(crea una cuenta gratis y en tu nombre pulsa ajustes/api y abajo del todo está.
+
 ---
 
 ## Compilación desde el código fuente
