@@ -1,0 +1,104 @@
+﻿@page "/"
+
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Dashboard
+
+@inject IDashboardService DashboardService
+
+<PageTitle>JellyInspector</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-6">
+
+    <MudText Typo="Typo.h3" GutterBottom="true">
+        JellyInspector
+    </MudText>
+
+    <MudText Typo="Typo.subtitle1" Class="mb-6">
+        Estado actual de la biblioteca
+    </MudText>
+
+    @if (_dashboard is null)
+    {
+        <MudProgressCircular Indeterminate="true"
+                             Color="Color.Primary" />
+    }
+    else
+    {
+        <MudGrid>
+
+            <MudItem xs="12" sm="4">
+                <MudCard>
+                    <MudCardContent>
+
+                        <MudIcon Icon="@Icons.Material.Filled.LiveTv"
+                                 Size="Size.Large"
+                                 Color="Color.Primary"/>
+
+                        <MudText Typo="Typo.h6">
+                            Series
+                        </MudText>
+
+                        <MudText Typo="Typo.h3">
+                            @_dashboard.Series
+                        </MudText>
+
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudCard>
+                    <MudCardContent>
+
+                        <MudIcon Icon="@Icons.Material.Filled.ViewModule"
+                                 Size="Size.Large"
+                                 Color="Color.Info"/>
+
+                        <MudText Typo="Typo.h6">
+                            Temporadas
+                        </MudText>
+
+                        <MudText Typo="Typo.h3">
+                            @_dashboard.Seasons
+                        </MudText>
+
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudCard>
+                    <MudCardContent>
+
+                        <MudIcon Icon="@Icons.Material.Filled.Movie"
+                                 Size="Size.Large"
+                                 Color="Color.Success"/>
+
+                        <MudText Typo="Typo.h6">
+                            Episodios
+                        </MudText>
+
+                        <MudText Typo="Typo.h3">
+                            @_dashboard.Episodes
+                        </MudText>
+
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+        </MudGrid>
+    }
+
+</MudContainer>
+
+@code
+{
+    private DashboardDto? _dashboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _dashboard =
+            await DashboardService.GetAsync();
+    }
+}

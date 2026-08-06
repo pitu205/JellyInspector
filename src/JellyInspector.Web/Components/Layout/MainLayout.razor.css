@@ -1,0 +1,107 @@
+::deep .drawer .mud-drawer-content {
+    height: 100%;
+    overflow: hidden;
+}
+
+.drawer-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.drawer-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 88px;
+    padding-right: 58px !important;
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+.drawer-logo {
+    flex: 0 0 auto;
+}
+
+.drawer-title-block {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.drawer-menu-host {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+::deep .drawer-menu-host > .nav-menu-root {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.sidebar-toggle-button {
+    position: absolute;
+    top: 24px;
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    color: var(--mud-palette-text-secondary);
+    background: var(--mud-palette-surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--mud-elevation-1);
+}
+
+.sidebar-toggle-expanded {
+    right: 8px;
+}
+
+.sidebar-toggle-compact {
+    left: 18px;
+}
+
+.sidebar-toggle-button:hover {
+    color: var(--mud-palette-primary);
+    background: var(--mud-palette-action-default-hover);
+}
+
+.sidebar-toggle-button:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.sidebar-toggle-icon {
+    position: relative;
+    display: block;
+    width: 24px;
+    height: 21px;
+    border: 2px solid currentColor;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.sidebar-toggle-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 7px;
+    width: 2px;
+    background: currentColor;
+    border-radius: 2px;
+}
+
+::deep .mud-drawer--closed .drawer-header {
+    justify-content: center;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+}

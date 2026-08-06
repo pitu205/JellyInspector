@@ -1,0 +1,238 @@
+@page "/compare/{SeriesId}"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Comparison
+@using JellyInspector.Application.Models
+
+@inject ISeriesComparisonService ComparisonService
+@inject NavigationManager Navigation
+
+<PageTitle>Comparación de serie</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <MudButton Variant="Variant.Text"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="GoBack"
+               Class="mb-4">
+        Volver
+    </MudButton>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-8">
+
+            <MudStack AlignItems="AlignItems.Center"
+                      Spacing="3">
+
+                <MudProgressCircular Indeterminate="true"
+                                     Color="Color.Primary"
+                                     Size="Size.Large" />
+
+                <MudText>
+                    Comparando Jellyfin con TMDb...
+                </MudText>
+
+            </MudStack>
+
+        </MudPaper>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Error"
+                  Variant="Variant.Filled">
+
+            @_errorMessage
+
+        </MudAlert>
+    }
+    else if (_comparison is null)
+    {
+        <MudAlert Severity="Severity.Warning"
+                  Variant="Variant.Outlined">
+
+            No se encontró la serie.
+
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.h3"
+                 Class="mb-1">
+
+            @_comparison.Name
+
+        </MudText>
+
+        <MudText Typo="Typo.body2"
+                 Color="Color.Secondary"
+                 Class="mb-4">
+
+            Comparación entre Jellyfin y TMDb
+
+        </MudText>
+
+        @if (_comparison.Tmdb is null)
+        {
+            <MudAlert Severity="Severity.Warning"
+                      Variant="Variant.Outlined">
+
+                La serie no tiene datos disponibles en TMDb.
+
+            </MudAlert>
+        }
+        else
+        {
+            var jellyfinSeasons =
+                (_comparison.Jellyfin?.Seasons
+                    ?? new List<SeasonInfo>())
+                .OrderBy(season => season.IndexNumber)
+                .ToList();
+
+            var tmdbSeasons =
+                _comparison.Tmdb.Seasons
+                    .Where(season => season.SeasonNumber > 0)
+                    .OrderBy(season => season.SeasonNumber)
+                    .ToList();
+
+            <MudGrid Spacing="4">
+
+                <MudItem xs="12" md="6">
+
+                    <MudPaper Class="pa-4">
+
+                        <MudText Typo="Typo.h5"
+                                 Class="mb-3">
+
+                            Jellyfin
+
+                        </MudText>
+
+                        <MudText>
+                            Temporadas: @jellyfinSeasons.Count
+                        </MudText>
+
+                        <MudText>
+                            Episodios:
+                            @jellyfinSeasons.Sum(
+                                season => season.EpisodeCount)
+                        </MudText>
+
+                        <MudDivider Class="my-3" />
+
+                        @foreach (var season in jellyfinSeasons)
+                        {
+                            <MudPaper Class="pa-3 mb-2"
+                                      Elevation="1">
+
+                                <MudText Typo="Typo.subtitle1">
+                                    Temporada @season.IndexNumber
+                                </MudText>
+
+                                <MudText Typo="Typo.body2"
+                                         Color="Color.Secondary">
+
+                                    @season.EpisodeCount episodios
+
+                                </MudText>
+
+                            </MudPaper>
+                        }
+
+                    </MudPaper>
+
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+
+                    <MudPaper Class="pa-4">
+
+                        <MudText Typo="Typo.h5"
+                                 Class="mb-3">
+
+                            TMDb
+
+                        </MudText>
+
+                        <MudText>
+                            Temporadas oficiales:
+                            @_comparison.Tmdb.NumberOfSeasons
+                        </MudText>
+
+                        <MudText>
+                            Episodios:
+                            @tmdbSeasons.Sum(
+                                season => season.Episodes.Count)
+                        </MudText>
+
+                        <MudDivider Class="my-3" />
+
+                        @foreach (var season in tmdbSeasons)
+                        {
+                            <MudPaper Class="pa-3 mb-2"
+                                      Elevation="1">
+
+                                <MudText Typo="Typo.subtitle1">
+                                    Temporada @season.SeasonNumber
+                                </MudText>
+
+                                <MudText Typo="Typo.body2"
+                                         Color="Color.Secondary">
+
+                                    @season.Episodes.Count episodios
+
+                                </MudText>
+
+                            </MudPaper>
+                        }
+
+                    </MudPaper>
+
+                </MudItem>
+
+            </MudGrid>
+        }
+    }
+
+</MudContainer>
+
+@code
+{
+    [Parameter]
+    public string SeriesId { get; set; } = string.Empty;
+
+    private SeriesComparisonDto? _comparison;
+
+    private bool _loading = true;
+
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _comparison = null;
+
+        try
+        {
+            _comparison =
+                await ComparisonService.GetAsync(SeriesId);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"No se pudo comparar la serie: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(
+            $"/series/{Uri.EscapeDataString(SeriesId)}");
+    }
+}

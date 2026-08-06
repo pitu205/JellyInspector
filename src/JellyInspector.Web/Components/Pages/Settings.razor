@@ -1,0 +1,93 @@
+@page "/settings"
+@rendermode InteractiveServer
+
+@using JellyInspector.Domain.Entities
+
+<PageTitle>Configuración</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+
+    <MudText Typo="Typo.h4" GutterBottom="true">
+        Configuración
+    </MudText>
+
+    <MudPaper Elevation="2" Class="pa-6">
+
+        <MudStack Spacing="4">
+
+            <MudText Typo="Typo.h6">
+                Jellyfin
+            </MudText>
+
+            <MudTextField T="string"
+                          Label="URL del servidor Jellyfin"
+                          Placeholder="http://192.168.50.34:8096"
+                          Variant="Variant.Outlined"
+                          @bind-Value="_settings.JellyfinServerUrl"
+                          Immediate="true" />
+
+            <MudTextField T="string"
+                          Label="API Key de Jellyfin"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          @bind-Value="_settings.JellyfinApiKey"
+                          Immediate="true" />
+
+            <MudDivider />
+
+            <MudText Typo="Typo.h6">
+                TMDb
+            </MudText>
+
+            <MudTextField T="string"
+                          Label="API Key de TMDb"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          @bind-Value="_settings.TmdbApiKey"
+                          Immediate="true" />
+
+<MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="_saving"
+                       OnClick="SaveSettingsAsync">
+
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small"
+                                         Indeterminate="true"
+                                         Class="mr-2" />
+                }
+
+                Guardar configuración
+
+            </MudButton>
+
+            @if (_serverInfo is not null)
+            {
+                <MudAlert Severity="Severity.Success"
+                          Variant="Variant.Outlined">
+
+                    <MudText Typo="Typo.subtitle1">
+                        Conexión correcta
+                    </MudText>
+
+                    <MudText>
+                        <b>Servidor:</b> @_serverInfo.ServerName
+                    </MudText>
+
+                    <MudText>
+                        <b>Versión:</b> @_serverInfo.Version
+                    </MudText>
+
+                    <MudText>
+                        <b>ID:</b> @_serverInfo.Id
+                    </MudText>
+
+                </MudAlert>
+            }
+
+        </MudStack>
+
+    </MudPaper>
+
+</MudContainer>

@@ -1,0 +1,68 @@
+@namespace JellyInspector.Web.Components.Scanner
+
+<MudStack Spacing="1">
+
+    <MudStack Row="true"
+              AlignItems="AlignItems.Center"
+              Justify="Justify.SpaceBetween">
+
+        <MudChip T="string"
+                 Size="Size.Small"
+                 Color="@HealthColor"
+                 Variant="Variant.Filled"
+                 Icon="@HealthIcon"
+                 Class="health-score-chip">
+            Salud: @Score %
+        </MudChip>
+
+        <MudText Typo="Typo.caption"
+                 Color="@HealthColor">
+            @HealthLabel
+        </MudText>
+
+    </MudStack>
+
+    <MudProgressLinear Value="@Score"
+                       Color="@HealthColor"
+                       Rounded="true" />
+
+</MudStack>
+
+<style>
+    .health-score-chip {
+        min-height: 28px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int Score { get; set; }
+
+    private Color HealthColor => Score switch
+    {
+        >= 95 => Color.Success,
+        >= 80 => Color.Warning,
+        >= 60 => Color.Warning,
+        _ => Color.Error
+    };
+
+    private string HealthLabel => Score switch
+    {
+        100 => "Perfecta",
+        >= 95 => "Excelente",
+        >= 80 => "Buena",
+        >= 60 => "Mejorable",
+        _ => "Crítica"
+    };
+
+    private string HealthIcon => Score switch
+    {
+        100 => Icons.Material.Filled.Verified,
+        >= 95 => Icons.Material.Filled.CheckCircle,
+        >= 80 => Icons.Material.Filled.ThumbUp,
+        >= 60 => Icons.Material.Filled.Warning,
+        _ => Icons.Material.Filled.Error
+    };
+}

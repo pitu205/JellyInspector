@@ -1,0 +1,531 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Dashboard
+
+@inject IDashboardService DashboardService
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - JellyInspector</PageTitle>
+
+<MudStack Row="true"
+          AlignItems="AlignItems.Center"
+          Justify="Justify.SpaceBetween"
+          Class="mb-5">
+
+    <div>
+        <MudText Typo="Typo.h4">Dashboard</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Resumen y estado actual de la biblioteca
+        </MudText>
+    </div>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ManageSearch"
+               OnClick="OpenScanner">
+        Analizar biblioteca
+    </MudButton>
+
+</MudStack>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-8 dashboard-surface">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudProgressCircular Indeterminate="true"
+                                 Color="Color.Primary"
+                                 Size="Size.Large" />
+            <MudText Color="Color.Secondary">
+                Cargando el estado de la biblioteca...
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+        @_errorMessage
+    </MudAlert>
+}
+else if (_dashboard is not null)
+{
+    <MudPaper Class="pa-5 mb-4 dashboard-hero" Elevation="2">
+        <MudGrid Spacing="3" AlignItems="AlignItems.Center">
+            <MudItem xs="12" md="7">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">
+                    Biblioteca
+                </MudText>
+                <MudText Typo="Typo.h4" Class="dashboard-hero-title">
+                    @GetHealthMessage()
+                </MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">
+                    @_dashboard.Series series · @_dashboard.Seasons temporadas · @_dashboard.Episodes episodios
+                </MudText>
+            </MudItem>
+
+            <MudItem xs="12" md="5">
+                <MudStack Spacing="1">
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle1">Salud global</MudText>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Filled"
+                                 Color="@GetHealthColor()"
+                                 Icon="@GetHealthIcon()">
+                            @FormatHealth()
+                        </MudChip>
+                    </MudStack>
+                    <MudProgressLinear Value="@_dashboard.HealthPercentage"
+                                       Color="@GetHealthColor()"
+                                       Rounded="true"
+                                       Size="Size.Large" />
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudGrid Spacing="3" Class="mb-4">
+        @Kpi(Icons.Material.Filled.LiveTv, "Series", _dashboard.Series.ToString(), Color.Primary, OpenLibrary)
+        @Kpi(Icons.Material.Filled.VideoLibrary, "Episodios", _dashboard.Episodes.ToString(), Color.Info, OpenLibrary)
+        @Kpi(Icons.Material.Filled.Error, "Con incidencias", _dashboard.SeriesWithIssues.ToString(), Color.Error, OpenScanner)
+        @Kpi(Icons.Material.Filled.MovieFilter, "Episodios faltantes", _dashboard.MissingEpisodes.ToString(), Color.Error, OpenScanner)
+        @Kpi(Icons.Material.Filled.FolderOff, "Temporadas faltantes", _dashboard.MissingSeasons.ToString(), Color.Warning, OpenScanner)
+        @Kpi(Icons.Material.Filled.CheckCircle, "Perfectas", _dashboard.PerfectSeries.ToString(), Color.Success, OpenScanner)
+    </MudGrid>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="5">
+            <MudPaper Class="pa-5 dashboard-surface dashboard-full-height" Elevation="1">
+                <MudStack Spacing="3">
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween">
+                        <div>
+                            <MudText Typo="Typo.h6">Último análisis</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Información de la última auditoría guardada
+                            </MudText>
+                        </div>
+                        <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.History" />
+                        </MudAvatar>
+                    </MudStack>
+
+                    <MudDivider />
+
+                    @if (_dashboard.LastScanUtc.HasValue)
+                    {
+                        <div class="dashboard-scan-time">
+                            <MudText Typo="Typo.h5">@FormatLastScan()</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @_dashboard.LastScanUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </MudText>
+                        </div>
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="6">
+                                <div class="dashboard-mini-stat">
+                                    <MudIcon Icon="@Icons.Material.Filled.Timer" Color="Color.Info" />
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Duración</MudText>
+                                        <MudText Typo="Typo.subtitle1">@FormatDuration(_dashboard.LastScanDuration)</MudText>
+                                    </div>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <div class="dashboard-mini-stat">
+                                    <MudIcon Icon="@Icons.Material.Filled.ReportProblem" Color="Color.Warning" />
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Incidencias</MudText>
+                                        <MudText Typo="Typo.subtitle1">@_dashboard.LastScanIssueCount</MudText>
+                                    </div>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <div class="dashboard-mini-stat">
+                                    <MudIcon Icon="@Icons.Material.Filled.LiveTv" Color="Color.Info" />
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">En emisión</MudText>
+                                        <MudText Typo="Typo.subtitle1">@_dashboard.AiringSeries</MudText>
+                                    </div>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <div class="dashboard-mini-stat">
+                                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Secondary" />
+                                    <div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Próximamente</MudText>
+                                        <MudText Typo="Typo.subtitle1">@_dashboard.UpcomingSeries</MudText>
+                                    </div>
+                                </div>
+                            </MudItem>
+                        </MudGrid>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                            Todavía no hay ningún análisis guardado.
+                        </MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.ManageSearch"
+                               OnClick="OpenScanner">
+                        Analizar biblioteca
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="7">
+            <MudPaper Class="pa-5 dashboard-surface dashboard-full-height" Elevation="1">
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Justify="Justify.SpaceBetween"
+                          Class="mb-3">
+                    <div>
+                        <MudText Typo="Typo.h6">Series que necesitan atención</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Prioridad calculada por salud e incidencias detectadas
+                        </MudText>
+                    </div>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               EndIcon="@Icons.Material.Filled.ArrowForward"
+                               OnClick="OpenScanner">
+                        Ver todas
+                    </MudButton>
+                </MudStack>
+
+                @if (_dashboard.TopIssues.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                        No hay series con incidencias pendientes.
+                    </MudAlert>
+                }
+                else
+                {
+                    <div class="dashboard-issue-list">
+                        @foreach (var item in _dashboard.TopIssues)
+                        {
+                            <button type="button"
+                                    class="dashboard-issue-row"
+                                    @onclick="@(() => OpenSeries(item.JellyfinId))">
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Variant="Variant.Filled"
+                                         Color="@GetIssueColor(item.HealthScore)"
+                                         Icon="@GetIssueHealthIcon(item.HealthScore)"
+                                         Class="dashboard-health-chip">
+                                    Salud @item.HealthScore %
+                                </MudChip>
+
+                                <div class="dashboard-issue-main">
+                                    <MudText Typo="Typo.subtitle1" Class="dashboard-issue-name">
+                                        @item.Name
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @FormatIssueSummary(item)
+                                    </MudText>
+                                </div>
+
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Variant="Variant.Outlined"
+                                         Color="@GetIssueColor(item.HealthScore)">
+                                    @item.IssueCount incidencia(s)
+                                </MudChip>
+
+                                <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
+                                         Color="Color.Default" />
+                            </button>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+<style>
+    .dashboard-surface,
+    .dashboard-hero {
+        border-radius: 14px;
+    }
+
+    .dashboard-hero {
+        background:
+            linear-gradient(120deg,
+                color-mix(in srgb, var(--mud-palette-primary) 16%, var(--mud-palette-surface)),
+                var(--mud-palette-surface) 58%);
+        border: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .dashboard-hero-title {
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .dashboard-kpi-card {
+        width: 100%;
+        min-height: 122px;
+        padding: 18px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 14px;
+        color: inherit;
+        background: var(--mud-palette-surface);
+        text-align: left;
+        cursor: pointer;
+        transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .dashboard-kpi-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--mud-palette-primary);
+        box-shadow: var(--mud-elevation-4);
+    }
+
+    .dashboard-kpi-value {
+        font-size: 1.8rem;
+        line-height: 1.1;
+        font-weight: 700;
+    }
+
+    .dashboard-full-height {
+        height: 100%;
+    }
+
+    .dashboard-scan-time {
+        padding: 12px 0;
+    }
+
+    .dashboard-mini-stat {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 70px;
+        padding: 12px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 10px;
+    }
+
+    .dashboard-issue-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .dashboard-issue-row {
+        appearance: none;
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 11px;
+        color: inherit;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 130ms ease, border-color 130ms ease, transform 130ms ease;
+    }
+
+    .dashboard-issue-row:hover {
+        background: var(--mud-palette-action-default-hover);
+        border-color: var(--mud-palette-primary);
+        transform: translateX(2px);
+    }
+
+    .dashboard-issue-main {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .dashboard-health-chip {
+        min-width: 112px;
+        justify-content: center;
+        flex: 0 0 auto;
+        font-weight: 700;
+    }
+
+    .dashboard-issue-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 700px) {
+        .dashboard-issue-row > .mud-chip:not(.dashboard-health-chip) {
+            display: none;
+        }
+
+        .dashboard-health-chip {
+            min-width: auto;
+        }
+    }
+</style>
+
+@code
+{
+    private DashboardDto? _dashboard;
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dashboard = await DashboardService.GetAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"No se pudo cargar el Dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private RenderFragment Kpi(
+        string icon,
+        string label,
+        string value,
+        Color color,
+        Action action) => builder =>
+    {
+        builder.OpenComponent<MudItem>(0);
+        builder.AddAttribute(1, "xs", 6);
+        builder.AddAttribute(2, "sm", 4);
+        builder.AddAttribute(3, "lg", 2);
+        builder.AddAttribute(4, "ChildContent", (RenderFragment)(itemBuilder =>
+        {
+            itemBuilder.OpenElement(0, "button");
+            itemBuilder.AddAttribute(1, "type", "button");
+            itemBuilder.AddAttribute(2, "class", "dashboard-kpi-card");
+            itemBuilder.AddAttribute(3, "onclick", EventCallback.Factory.Create(this, action));
+
+            itemBuilder.OpenComponent<MudStack>(4);
+            itemBuilder.AddAttribute(5, "Spacing", 2);
+            itemBuilder.AddAttribute(6, "ChildContent", (RenderFragment)(stackBuilder =>
+            {
+                stackBuilder.OpenComponent<MudIcon>(0);
+                stackBuilder.AddAttribute(1, "Icon", icon);
+                stackBuilder.AddAttribute(2, "Color", color);
+                stackBuilder.AddAttribute(3, "Size", Size.Medium);
+                stackBuilder.CloseComponent();
+
+                stackBuilder.OpenComponent<MudText>(4);
+                stackBuilder.AddAttribute(5, "Typo", Typo.caption);
+                stackBuilder.AddAttribute(6, "Color", Color.Secondary);
+                stackBuilder.AddAttribute(7, "ChildContent", (RenderFragment)(b => b.AddContent(0, label)));
+                stackBuilder.CloseComponent();
+
+                stackBuilder.OpenElement(8, "div");
+                stackBuilder.AddAttribute(9, "class", "dashboard-kpi-value");
+                stackBuilder.AddContent(10, value);
+                stackBuilder.CloseElement();
+            }));
+            itemBuilder.CloseComponent();
+            itemBuilder.CloseElement();
+        }));
+        builder.CloseComponent();
+    };
+
+    private string GetHealthMessage()
+    {
+        if (_dashboard is null) return "Biblioteca sin analizar";
+        if (_dashboard.HealthPercentage >= 98d) return "Biblioteca en excelente estado";
+        if (_dashboard.HealthPercentage >= 90d) return "Biblioteca en buen estado";
+        if (_dashboard.HealthPercentage >= 75d) return "Biblioteca mejorable";
+        return "La biblioteca necesita atención";
+    }
+
+    private Color GetHealthColor()
+    {
+        if (_dashboard is null) return Color.Default;
+        if (_dashboard.HealthPercentage >= 98d) return Color.Success;
+        if (_dashboard.HealthPercentage >= 90d) return Color.Info;
+        if (_dashboard.HealthPercentage >= 75d) return Color.Warning;
+        return Color.Error;
+    }
+
+    private string GetHealthIcon() => GetHealthColor() switch
+    {
+        Color.Success => Icons.Material.Filled.Verified,
+        Color.Info => Icons.Material.Filled.ThumbUp,
+        Color.Warning => Icons.Material.Filled.WarningAmber,
+        _ => Icons.Material.Filled.Error
+    };
+
+    private string FormatHealth() =>
+        _dashboard is null ? "—" : $"{_dashboard.HealthPercentage:0.#} %";
+
+    private string FormatLastScan()
+    {
+        if (_dashboard?.LastScanUtc is not DateTime scanUtc)
+        {
+            return "Sin análisis";
+        }
+
+        var elapsed = DateTime.UtcNow - scanUtc;
+        if (elapsed.TotalMinutes < 1) return "Hace menos de un minuto";
+        if (elapsed.TotalHours < 1) return $"Hace {(int)elapsed.TotalMinutes} min";
+        if (elapsed.TotalDays < 1) return $"Hace {(int)elapsed.TotalHours} h";
+        if (elapsed.TotalDays < 7) return $"Hace {(int)elapsed.TotalDays} días";
+        return scanUtc.ToLocalTime().ToString("dd/MM/yyyy");
+    }
+
+    private static string FormatDuration(TimeSpan? duration)
+    {
+        if (!duration.HasValue) return "—";
+        return duration.Value.TotalMinutes >= 1
+            ? $"{(int)duration.Value.TotalMinutes} min {duration.Value.Seconds} s"
+            : $"{duration.Value.TotalSeconds:0.0} s";
+    }
+
+    private static Color GetIssueColor(int healthScore)
+    {
+        if (healthScore < 75) return Color.Error;
+        if (healthScore < 100) return Color.Warning;
+        return Color.Success;
+    }
+
+    private static string FormatIssueSummary(DashboardIssueDto item)
+    {
+        return $"{item.SeasonCount} temporada(s) · " +
+               $"{item.EpisodeCount} episodio(s)";
+    }
+
+    private static string GetIssueHealthIcon(int healthScore)
+    {
+        if (healthScore >= 95)
+        {
+            return Icons.Material.Filled.CheckCircle;
+        }
+
+        if (healthScore >= 80)
+        {
+            return Icons.Material.Filled.WarningAmber;
+        }
+
+        return Icons.Material.Filled.Error;
+    }
+
+    private void OpenScanner() => Navigation.NavigateTo("/scanner");
+    private void OpenLibrary() => Navigation.NavigateTo("/library");
+
+    private void OpenSeries(string jellyfinId)
+    {
+        if (!string.IsNullOrWhiteSpace(jellyfinId))
+        {
+            Navigation.NavigateTo($"/series/{Uri.EscapeDataString(jellyfinId)}");
+        }
+    }
+}

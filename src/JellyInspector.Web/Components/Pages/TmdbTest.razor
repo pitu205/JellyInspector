@@ -1,0 +1,81 @@
+@page "/tmdbtest"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Models
+@using JellyInspector.Infrastructure.Tmdb
+
+@inject ITmdbClient TmdbClient
+
+<PageTitle>TMDb Test</PageTitle>
+
+<MudText Typo="Typo.h4">
+    Prueba TMDb
+</MudText>
+
+<MudButton Variant="Variant.Filled"
+           Color="Color.Primary"
+           OnClick="Load">
+    Probar conexión
+</MudButton>
+
+@if (_series is not null)
+{
+    <MudPaper Class="pa-4 mt-4">
+
+        <MudText Typo="Typo.h5">
+            @_series.Name
+        </MudText>
+
+        <MudText>
+            Temporadas: @_series.NumberOfSeasons
+        </MudText>
+
+        <MudText>
+            Temporadas descargadas: @_series.Seasons.Count
+        </MudText>
+
+        <MudText>
+            Episodios descargados:
+            @_series.Seasons.Sum(season => season.Episodes.Count)
+        </MudText>
+
+    </MudPaper>
+}
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error"
+              Class="mt-4">
+        @_error
+    </MudAlert>
+}
+
+@code
+{
+    private TmdbSeries? _series;
+
+    private string? _error;
+
+    private async Task Load()
+    {
+        _error = null;
+        _series = null;
+
+        try
+        {
+            // Breaking Bad
+            _series =
+                await TmdbClient.GetSeriesAsync("1396");
+
+            if (_series is null)
+            {
+                _error =
+                    "TMDb no ha devuelto información.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

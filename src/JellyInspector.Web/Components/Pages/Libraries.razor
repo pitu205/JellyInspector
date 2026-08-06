@@ -1,0 +1,336 @@
+@page "/libraries"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Library
+@using JellyInspector.Application.Models
+@using JellyInspector.Infrastructure.Jellyfin.Clients
+
+@inject ILibraryClient LibraryClient
+@inject ILibrarySelectionService SelectionService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Mis bibliotecas</PageTitle>
+
+<MudStack Row="true"
+          AlignItems="AlignItems.Center"
+          Justify="Justify.SpaceBetween"
+          Class="mb-5">
+    <div>
+        <MudText Typo="Typo.h4">Mis bibliotecas</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Selecciona una o varias bibliotecas de series de Jellyfin.
+        </MudText>
+    </div>
+
+    <MudButton Variant="Variant.Outlined"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Refresh"
+               Disabled="_loading || _saving"
+               OnClick="LoadAsync">
+        Actualizar
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-6" Elevation="1">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <MudText>Consultando las bibliotecas de Jellyfin...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+        @_error
+    </MudAlert>
+}
+else if (_libraries.Count == 0)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Jellyfin no ha devuelto ninguna biblioteca de tipo series.
+    </MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4 libraries-summary" Elevation="1">
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Justify="Justify.SpaceBetween">
+            <div>
+                <MudText Typo="Typo.h6">Bibliotecas incluidas</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @SelectedCount seleccionada(s) · @SelectedSeriesCount serie(s) detectada(s)
+                </MudText>
+            </div>
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           OnClick="SelectAll">
+                    Seleccionar todas
+                </MudButton>
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           OnClick="ClearAll">
+                    Limpiar
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid Spacing="3" Class="mb-5">
+        @foreach (var library in _libraries)
+        {
+            <MudItem xs="12" md="6" xl="4">
+                <button type="button"
+                        class="@GetLibraryCardClass(library.Id)"
+                        @onclick="@(() => ToggleLibrary(library.Id))">
+                    <div class="library-card-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.VideoLibrary"
+                                 Color="@(IsSelected(library.Id) ? Color.Primary : Color.Default)"
+                                 Size="Size.Large" />
+                    </div>
+
+                    <div class="library-card-main">
+                        <MudText Typo="Typo.h6">@library.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @library.SeriesCount serie(s)
+                        </MudText>
+                        @if (library.Locations.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption"
+                                     Color="Color.Secondary"
+                                     Class="library-location">
+                                @string.Join(" · ", library.Locations)
+                            </MudText>
+                        }
+                    </div>
+
+                    <MudIcon Icon="@(IsSelected(library.Id)
+                                      ? Icons.Material.Filled.CheckCircle
+                                      : Icons.Material.Outlined.RadioButtonUnchecked)"
+                             Color="@(IsSelected(library.Id) ? Color.Success : Color.Default)"
+                             Size="Size.Medium" />
+                </button>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudPaper Class="pa-4" Elevation="1">
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Justify="Justify.SpaceBetween"
+                  Spacing="2">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Tras cambiar la selección, ejecuta un escaneo completo para actualizar Mis series y el Dashboard.
+            </MudText>
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Disabled="_saving || SelectedCount == 0"
+                           OnClick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Class="mr-2" />
+                    }
+                    Guardar selección
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ManageSearch"
+                           Disabled="_saving || SelectedCount == 0"
+                           OnClick="SaveAndScanAsync">
+                    Guardar e ir a escanear
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
+
+<style>
+    .libraries-summary {
+        border-radius: 14px;
+    }
+
+    .library-card {
+        appearance: none;
+        width: 100%;
+        min-height: 132px;
+        padding: 18px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 14px;
+        color: inherit;
+        background: var(--mud-palette-surface);
+        box-shadow: var(--mud-elevation-1);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+    }
+
+    .library-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--mud-palette-primary);
+        background: var(--mud-palette-action-default-hover);
+    }
+
+    .library-card-selected {
+        border-color: var(--mud-palette-primary);
+        background: var(--mud-palette-primary-hover);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    }
+
+    .library-card-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: var(--mud-palette-action-default-hover);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+    }
+
+    .library-card-main {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .library-location {
+        display: block;
+        margin-top: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
+
+@code
+{
+    private List<JellyfinLibraryInfo> _libraries = [];
+    private HashSet<string> _selected = new(StringComparer.OrdinalIgnoreCase);
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    private int SelectedCount => _selected.Count;
+
+    private int SelectedSeriesCount => _libraries
+        .Where(item => IsSelected(item.Id))
+        .Sum(item => item.SeriesCount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _libraries = (await LibraryClient.GetSeriesLibrariesAsync())
+                .ToList();
+
+            var saved =
+                await SelectionService.GetSelectedLibraryIdsAsync();
+
+            _selected = saved.Count > 0
+                ? new HashSet<string>(saved, StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(
+                    _libraries.Select(item => item.Id),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudieron cargar las bibliotecas: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private bool IsSelected(string id) => _selected.Contains(id);
+
+    private void ToggleLibrary(string id)
+    {
+        if (!_selected.Add(id))
+        {
+            _selected.Remove(id);
+        }
+    }
+
+    private void SelectAll()
+    {
+        _selected = new HashSet<string>(
+            _libraries.Select(item => item.Id),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void ClearAll()
+    {
+        _selected.Clear();
+    }
+
+    private string GetLibraryCardClass(string id)
+    {
+        return IsSelected(id)
+            ? "library-card library-card-selected"
+            : "library-card";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_selected.Count == 0)
+        {
+            Snackbar.Add(
+                "Selecciona al menos una biblioteca.",
+                Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            await SelectionService.SaveSelectedLibraryIdsAsync(_selected);
+            Snackbar.Add(
+                "Selección de bibliotecas guardada.",
+                Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(
+                $"No se pudo guardar la selección: {ex.Message}",
+                Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SaveAndScanAsync()
+    {
+        await SaveAsync();
+
+        if (!_saving && _selected.Count > 0)
+        {
+            Navigation.NavigateTo("/scanner");
+        }
+    }
+}

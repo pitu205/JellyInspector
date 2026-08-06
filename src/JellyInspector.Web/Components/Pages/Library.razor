@@ -1,0 +1,752 @@
+@page "/library"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Interfaces
+@using JellyInspector.Application.Library
+@using JellyInspector.Application.Scanning
+@using Microsoft.JSInterop
+
+@inject ILibraryService LibraryService
+@inject IScannerService ScannerService
+@inject IJellyfinService JellyfinService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Mis series</PageTitle>
+
+<MudStack Row="true"
+          Justify="Justify.SpaceBetween"
+          AlignItems="AlignItems.Center"
+          Class="mb-4">
+
+    <div>
+        <MudText Typo="Typo.h4">Mis series</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Consulta, compara y actualiza individualmente tu biblioteca
+        </MudText>
+    </div>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ManageSearch"
+               OnClick="OpenScanner">
+        Escanear biblioteca
+    </MudButton>
+
+</MudStack>
+
+<MudPaper Class="pa-4 mb-4 series-toolbar" Elevation="1">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="6">
+            <MudTextField T="string"
+                          @bind-Value="_searchText"
+                          Placeholder="Buscar serie..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          Clearable="true"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <div class="library-native-select-wrapper">
+                <label for="library-filter">Estado</label>
+                <select id="library-filter"
+                        class="library-native-select"
+                        @bind="_filter">
+                    <option value="@LibraryFilter.All">Todas</option>
+                    <option value="@LibraryFilter.Complete">Completas</option>
+                    <option value="@LibraryFilter.WithIssues">Con incidencias</option>
+                    <option value="@LibraryFilter.MissingEpisodes">Episodios faltantes</option>
+                    <option value="@LibraryFilter.MissingSeasons">Temporadas faltantes</option>
+                    <option value="@LibraryFilter.WithTmdb">Con TMDb</option>
+                    <option value="@LibraryFilter.MissingTmdb">Sin TMDb</option>
+                </select>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <div class="library-native-select-wrapper">
+                <label for="library-sort">Ordenar por</label>
+                <select id="library-sort"
+                        class="library-native-select"
+                        @bind="_sort">
+                    <option value="@LibrarySort.NameAsc">Nombre (A-Z)</option>
+                    <option value="@LibrarySort.NameDesc">Nombre (Z-A)</option>
+                    <option value="@LibrarySort.LowestHealth">Peor salud</option>
+                    <option value="@LibrarySort.HighestHealth">Mejor salud</option>
+                    <option value="@LibrarySort.MostIssues">Más incidencias</option>
+                    <option value="@LibrarySort.Newest">Año más reciente</option>
+                    <option value="@LibrarySort.Oldest">Año más antiguo</option>
+                </select>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Primary"
+                         Variant="Variant.Outlined">
+                    @FilteredSeries.Count() series
+                </MudChip>
+
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Error"
+                         Variant="Variant.Outlined">
+                    @FilteredSeries.Count(item => !item.Complete) con incidencias
+                </MudChip>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-8" Elevation="1">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudProgressCircular Indeterminate="true"
+                                 Color="Color.Primary"
+                                 Size="Size.Large" />
+            <MudText>Cargando biblioteca...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+        @_errorMessage
+    </MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var item in FilteredSeries)
+        {
+            var isScanning = ScannerService.IsSeriesRunning(item.JellyfinId);
+
+            <MudItem xs="12" md="6" xl="4">
+                <MudCard Class="library-series-card" Elevation="2">
+                    <MudCardContent>
+                        <MudStack Row="true"
+                                  AlignItems="AlignItems.Start"
+                                  Spacing="3">
+
+                            @if (!string.IsNullOrWhiteSpace(item.PosterTag))
+                            {
+                                <MudImage Src="@GetPosterUrl(item)"
+                                          Alt="@item.Name"
+                                          Width="112"
+                                          Height="166"
+                                          ObjectFit="ObjectFit.Cover"
+                                          Class="library-series-poster" />
+                            }
+                            else
+                            {
+                                <MudPaper Width="112px"
+                                          Height="166px"
+                                          Class="d-flex align-center justify-center library-series-poster">
+                                    <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported"
+                                             Size="Size.Large"
+                                             Color="Color.Secondary" />
+                                </MudPaper>
+                            }
+
+                            <MudStack Spacing="2" Class="flex-grow-1 library-series-main">
+                                <MudStack Row="true"
+                                          AlignItems="AlignItems.Start"
+                                          Justify="Justify.SpaceBetween"
+                                          Spacing="2">
+                                    <div class="library-series-heading">
+                                        <MudText Typo="Typo.h6"
+                                                 Class="library-series-title"
+                                                 @onclick="@(() => OpenSeries(item.JellyfinId))">
+                                            @item.Name
+                                        </MudText>
+
+                                        <MudText Typo="Typo.caption"
+                                                 Color="Color.Success">
+                                            @(item.ProductionYear > 0
+                                                ? item.ProductionYear.ToString()
+                                                : "Año desconocido")
+                                            · @item.SeasonCount temporada(s)
+                                            · @item.EpisodeCount episodio(s)
+                                        </MudText>
+
+                                        @if (item.TmdbVoteAverage > 0)
+                                        {
+                                            <div class="series-rating">
+                                                <div class="series-rating-stars"
+                                                     title="@($"TMDb {item.TmdbVoteAverage:0.0}/10")">
+                                                    @for (var star = 1; star <= 5; star++)
+                                                    {
+                                                        <MudIcon Icon="@(item.TmdbVoteAverage / 2d >= star
+                                                            ? Icons.Material.Filled.Star
+                                                            : item.TmdbVoteAverage / 2d >= star - 0.5
+                                                                ? Icons.Material.Filled.StarHalf
+                                                                : Icons.Material.Filled.StarBorder)"
+                                                                 Size="Size.Small"
+                                                                 Color="Color.Warning" />
+                                                    }
+                                                </div>
+
+                                                <MudText Typo="Typo.body2"
+                                                         Class="series-rating-value">
+                                                    @item.TmdbVoteAverage.ToString("0.0")/10
+                                                </MudText>
+
+                                                <MudText Typo="Typo.caption"
+                                                         Color="Color.Secondary">
+                                                    TMDb · @FormatVotes(item.TmdbVoteCount) votos
+                                                </MudText>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="@GetStatusColor(item)"
+                                             Variant="Variant.Filled"
+                                             Icon="@GetStatusIcon(item)">
+                                        @GetStatusLabel(item)
+                                    </MudChip>
+                                </MudStack>
+
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true"
+                                              AlignItems="AlignItems.Center"
+                                              Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.body2">
+                                            Completada: @FormatCompletion(item)
+                                        </MudText>
+                                        <MudText Typo="Typo.caption"
+                                                 Color="Color.Success">
+                                            @item.EpisodeCount de @GetExpectedEpisodes(item) episodios
+                                        </MudText>
+                                    </MudStack>
+
+                                    <MudProgressLinear Value="@GetCompletion(item)"
+                                                       Color="@GetCompletionColor(item)"
+                                                       Rounded="true" />
+                                </MudStack>
+
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true"
+                                              AlignItems="AlignItems.Center"
+                                              Justify="Justify.SpaceBetween">
+                                        <MudChip T="string"
+                                                 Size="Size.Small"
+                                                 Color="@GetHealthColor(item)"
+                                                 Variant="Variant.Filled"
+                                                 Icon="@GetHealthIcon(item)">
+                                            Salud: @GetHealthScore(item) %
+                                        </MudChip>
+
+                                        <MudText Typo="Typo.caption"
+                                                 Color="@GetHealthColor(item)">
+                                            @GetHealthLabel(item)
+                                        </MudText>
+                                    </MudStack>
+
+                                    <MudProgressLinear Value="@GetHealthScore(item)"
+                                                       Color="@GetHealthColor(item)"
+                                                       Rounded="true" />
+                                </MudStack>
+                            </MudStack>
+                        </MudStack>
+
+                        <MudDivider Class="my-3" />
+
+                        <div class="library-series-issues">
+                            @if (isScanning)
+                            {
+                                <MudAlert Severity="Severity.Info"
+                                          Variant="Variant.Outlined"
+                                          Dense="true">
+                                    <MudStack Row="true"
+                                              AlignItems="AlignItems.Center"
+                                              Spacing="2">
+                                        <MudProgressCircular Indeterminate="true"
+                                                             Size="Size.Small"
+                                                             Color="Color.Info" />
+                                        <MudText Typo="Typo.body2">
+                                            Escaneando @item.Name...
+                                        </MudText>
+                                    </MudStack>
+                                </MudAlert>
+                            }
+                            else if (item.MissingEpisodes == 0 && item.MissingSeasons == 0)
+                            {
+                                <MudAlert Severity="Severity.Success"
+                                          Variant="Variant.Outlined"
+                                          Dense="true">
+                                    No se han detectado incidencias.
+                                </MudAlert>
+                            }
+                            else
+                            {
+                                <MudStack Spacing="1">
+                                    @if (item.MissingSeasons > 0)
+                                    {
+                                        <MudChip T="string"
+                                                 Size="Size.Small"
+                                                 Color="Color.Error"
+                                                 Variant="Variant.Outlined"
+                                                 Icon="@Icons.Material.Filled.FolderOff">
+                                            @item.MissingSeasons temporada(s) faltante(s)
+                                        </MudChip>
+                                    }
+
+                                    @if (item.MissingEpisodes > 0)
+                                    {
+                                        <MudChip T="string"
+                                                 Size="Size.Small"
+                                                 Color="Color.Error"
+                                                 Variant="Variant.Outlined"
+                                                 Icon="@Icons.Material.Filled.MovieFilter">
+                                            @item.MissingEpisodes episodio(s) faltante(s)
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            }
+                        </div>
+                    </MudCardContent>
+
+                    <MudCardActions Class="px-4 pb-4 library-series-actions">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Visibility"
+                                   OnClick="@(() => OpenSeries(item.JellyfinId))">
+                            Ver detalle
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                   OnClick="@(() => OpenInJellyfinAsync(item.JellyfinId))">
+                            Jellyfin
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.CompareArrows"
+                                   Disabled="@(!item.HasTmdb)"
+                                   OnClick="@(() => OpenComparison(item.JellyfinId))">
+                            Comparar
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Info"
+                                   StartIcon="@(isScanning
+                                       ? Icons.Material.Filled.Sync
+                                       : Icons.Material.Filled.ManageSearch)"
+                                   Disabled="@(ScannerService.IsRunning ||
+                                               (!isScanning && ScannerService.ActiveSeriesScanId is not null))"
+                                   OnClick="@(() => ScanSeriesAsync(item))">
+                            @(isScanning ? "Escaneando..." : "Escanear serie")
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+<style>
+    .series-toolbar {
+        border-radius: 14px;
+    }
+
+    .library-native-select-wrapper {
+        position: relative;
+        width: 100%;
+        padding-top: 7px;
+    }
+
+    .library-native-select-wrapper label {
+        position: absolute;
+        top: 0;
+        left: 12px;
+        z-index: 1;
+        padding: 0 4px;
+        color: var(--mud-palette-text-secondary);
+        background: var(--mud-palette-surface);
+        font-size: .75rem;
+        line-height: 1;
+    }
+
+    .library-native-select {
+        width: 100%;
+        height: 40px;
+        padding: 0 38px 0 14px;
+        border: 1px solid var(--mud-palette-lines-inputs);
+        border-radius: var(--mud-default-borderradius);
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .library-native-select:hover {
+        border-color: var(--mud-palette-text-primary);
+    }
+
+    .library-native-select:focus {
+        border-color: var(--mud-palette-primary);
+        outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 22%, transparent);
+        outline-offset: 0;
+    }
+
+    .library-series-card {
+        height: 100%;
+        min-height: 430px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .library-series-card .mud-card-content {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .library-series-poster {
+        flex: 0 0 auto;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+
+    .library-series-main,
+    .library-series-heading {
+        min-width: 0;
+    }
+
+    .library-series-title {
+        cursor: pointer;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .library-series-title:hover {
+        text-decoration: underline;
+    }
+
+    .series-rating {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 7px;
+        flex-wrap: wrap;
+    }
+
+    .series-rating-stars {
+        display: inline-flex;
+        align-items: center;
+        gap: 1px;
+    }
+
+    .series-rating-value {
+        font-weight: 800;
+    }
+
+    .library-series-issues {
+        flex: 1 1 auto;
+        min-height: 76px;
+    }
+
+    .library-series-actions {
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 600px) {
+        .library-series-poster {
+            width: 92px !important;
+            height: 138px !important;
+        }
+    }
+</style>
+
+@code
+{
+    private static string FormatVotes(int votes)
+    {
+        return votes.ToString("N0");
+    }
+
+
+    private readonly List<LibrarySeriesDto> _series = [];
+    private bool _loading;
+    private string _searchText = string.Empty;
+    private string? _errorMessage;
+    private LibraryFilter _filter = LibraryFilter.All;
+    private LibrarySort _sort = LibrarySort.NameAsc;
+
+    private IEnumerable<LibrarySeriesDto> FilteredSeries =>
+        ApplySorting(
+            _series
+                .Where(MatchesSearch)
+                .Where(MatchesFilter));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSeriesAsync();
+    }
+
+    private bool MatchesSearch(LibrarySeriesDto item)
+    {
+        if (string.IsNullOrWhiteSpace(_searchText))
+        {
+            return true;
+        }
+
+        return item.Name.Contains(
+                   _searchText,
+                   StringComparison.OrdinalIgnoreCase)
+               || item.ProductionYear.ToString().Contains(
+                   _searchText,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesFilter(LibrarySeriesDto item)
+    {
+        return _filter switch
+        {
+            LibraryFilter.Complete => item.Complete,
+            LibraryFilter.WithIssues => !item.Complete,
+            LibraryFilter.MissingEpisodes => item.MissingEpisodes > 0,
+            LibraryFilter.MissingSeasons => item.MissingSeasons > 0,
+            LibraryFilter.WithTmdb => item.HasTmdb,
+            LibraryFilter.MissingTmdb => !item.HasTmdb,
+            _ => true
+        };
+    }
+
+    private IEnumerable<LibrarySeriesDto> ApplySorting(
+        IEnumerable<LibrarySeriesDto> source)
+    {
+        return _sort switch
+        {
+            LibrarySort.NameDesc => source.OrderByDescending(item => item.Name),
+            LibrarySort.LowestHealth => source
+                .OrderBy(GetHealthScore)
+                .ThenBy(item => item.Name),
+            LibrarySort.HighestHealth => source
+                .OrderByDescending(GetHealthScore)
+                .ThenBy(item => item.Name),
+            LibrarySort.MostIssues => source
+                .OrderByDescending(item => item.MissingEpisodes + item.MissingSeasons)
+                .ThenBy(item => item.Name),
+            LibrarySort.Newest => source
+                .OrderByDescending(item => item.ProductionYear)
+                .ThenBy(item => item.Name),
+            LibrarySort.Oldest => source
+                .OrderBy(item => item.ProductionYear)
+                .ThenBy(item => item.Name),
+            _ => source.OrderBy(item => item.Name)
+        };
+    }
+
+    private async Task LoadSeriesAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var result = await LibraryService.GetSeriesAsync();
+            _series.Clear();
+            _series.AddRange(result);
+        }
+        catch (Exception ex)
+        {
+            _series.Clear();
+            _errorMessage =
+                $"No se pudo cargar la biblioteca: {ex.Message}";
+
+            Snackbar.Add(
+                "Error al leer la biblioteca.",
+                Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ScanSeriesAsync(LibrarySeriesDto item)
+    {
+        try
+        {
+            var task = ScannerService.ScanSeriesAsync(item.JellyfinId);
+
+            while (!task.IsCompleted)
+            {
+                await Task.Delay(150);
+                await InvokeAsync(StateHasChanged);
+            }
+
+            await task;
+            await LoadSeriesAsync();
+
+            Snackbar.Add(
+                $"{item.Name} se ha actualizado correctamente.",
+                Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(
+                $"No se pudo escanear {item.Name}: {ex.Message}",
+                Severity.Error);
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string GetPosterUrl(LibrarySeriesDto series)
+    {
+        return
+            $"/api/jellyfin/image/{Uri.EscapeDataString(series.JellyfinId)}" +
+            $"?tag={Uri.EscapeDataString(series.PosterTag!)}";
+    }
+
+    private void OpenScanner()
+    {
+        Navigation.NavigateTo("/scanner");
+    }
+
+    private void OpenSeries(string jellyfinId)
+    {
+        Navigation.NavigateTo(
+            $"/series/{Uri.EscapeDataString(jellyfinId)}");
+    }
+
+    private void OpenComparison(string jellyfinId)
+    {
+        Navigation.NavigateTo(
+            $"/compare/{Uri.EscapeDataString(jellyfinId)}");
+    }
+
+    private async Task OpenInJellyfinAsync(string jellyfinId)
+    {
+        var url = await JellyfinService.GetItemWebUrlAsync(jellyfinId);
+
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            Snackbar.Add(
+                "No se ha configurado la URL de Jellyfin.",
+                Severity.Warning);
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private static int GetExpectedEpisodes(LibrarySeriesDto item) =>
+        item.EpisodeCount + item.MissingEpisodes;
+
+    private static double GetCompletion(LibrarySeriesDto item)
+    {
+        var expected = GetExpectedEpisodes(item);
+        return expected <= 0
+            ? 100d
+            : Math.Clamp(item.EpisodeCount * 100d / expected, 0d, 100d);
+    }
+
+    private static string FormatCompletion(LibrarySeriesDto item) =>
+        $"{GetCompletion(item):0.#} %";
+
+    private static int GetHealthScore(LibrarySeriesDto item) =>
+        Math.Clamp(
+            100 - item.MissingEpisodes - (item.MissingSeasons * 15),
+            0,
+            100);
+
+    private static Color GetCompletionColor(LibrarySeriesDto item)
+    {
+        var completion = GetCompletion(item);
+        if (completion >= 100d) return Color.Success;
+        if (completion >= 90d) return Color.Warning;
+        return Color.Error;
+    }
+
+    private static Color GetHealthColor(LibrarySeriesDto item)
+    {
+        var health = GetHealthScore(item);
+        if (health >= 95) return Color.Success;
+        if (health >= 80) return Color.Warning;
+        return Color.Error;
+    }
+
+    private static string GetHealthIcon(LibrarySeriesDto item)
+    {
+        var health = GetHealthScore(item);
+        if (health >= 95) return Icons.Material.Filled.CheckCircle;
+        if (health >= 80) return Icons.Material.Filled.ThumbUp;
+        return Icons.Material.Filled.Error;
+    }
+
+    private static string GetHealthLabel(LibrarySeriesDto item)
+    {
+        var health = GetHealthScore(item);
+        if (health >= 95) return "Excelente";
+        if (health >= 80) return "Buena";
+        return "Necesita atención";
+    }
+
+    private static Color GetStatusColor(LibrarySeriesDto item) =>
+        item.Complete ? Color.Success : Color.Error;
+
+    private static string GetStatusIcon(LibrarySeriesDto item) =>
+        item.Complete
+            ? Icons.Material.Filled.CheckCircle
+            : Icons.Material.Filled.Error;
+
+    private static string GetStatusLabel(LibrarySeriesDto item)
+    {
+        if (item.MissingEpisodes > 0)
+        {
+            return $"{item.MissingEpisodes} episodio(s) faltante(s)";
+        }
+
+        if (item.MissingSeasons > 0)
+        {
+            return $"{item.MissingSeasons} temporada(s) faltante(s)";
+        }
+
+        return "Completa";
+    }
+
+    private enum LibraryFilter
+    {
+        All,
+        Complete,
+        WithIssues,
+        MissingEpisodes,
+        MissingSeasons,
+        WithTmdb,
+        MissingTmdb
+    }
+
+    private enum LibrarySort
+    {
+        NameAsc,
+        NameDesc,
+        LowestHealth,
+        HighestHealth,
+        MostIssues,
+        Newest,
+        Oldest
+    }
+
+}

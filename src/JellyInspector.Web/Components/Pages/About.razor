@@ -1,0 +1,458 @@
+@page "/about"
+@using JellyInspector.Application.Dashboard
+@using JellyInspector.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@using MudBlazor
+
+@inject IDashboardService DashboardService
+@inject JellyInspectorDbContext DbContext
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Acerca de</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large"
+              Class="about-page">
+
+    <MudPaper Class="about-hero pa-8">
+
+        <div class="about-logo-wrap">
+            <MudIcon Icon="@Icons.Material.Filled.MovieFilter"
+                     Class="about-logo"
+                     Color="Color.Primary" />
+        </div>
+
+        <MudText Typo="Typo.h3"
+                 Align="Align.Center"
+                 Class="about-title">
+            JellyInspector
+        </MudText>
+
+        <MudStack Row="true"
+                  Justify="Justify.Center"
+                  AlignItems="AlignItems.Center"
+                  Spacing="2"
+                  Class="about-version-row">
+
+            <MudChip T="string"
+                     Color="Color.Primary"
+                     Variant="Variant.Filled"
+                     Icon="@Icons.Material.Filled.NewReleases">
+                Versión 0.9.0-beta
+            </MudChip>
+
+            <MudChip T="string"
+                     Color="Color.Warning"
+                     Variant="Variant.Outlined">
+                Estado Beta
+            </MudChip>
+
+        </MudStack>
+
+        <MudText Typo="Typo.body1"
+                 Align="Align.Center"
+                 Class="about-description">
+            Analiza, compara y supervisa bibliotecas de series en Jellyfin,
+            detectando incidencias y contrastando la información con TMDb.
+        </MudText>
+
+    </MudPaper>
+
+    <MudGrid Spacing="3"
+             Class="mt-4">
+
+        <MudItem xs="12" md="6">
+
+            <MudPaper Class="about-card pa-5">
+
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Spacing="2">
+
+                    <MudIcon Icon="@Icons.Material.Filled.FactCheck"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
+
+                    <MudText Typo="Typo.h5">
+                        Funciones principales
+                    </MudText>
+
+                </MudStack>
+
+                <MudList T="string" Dense="true"
+                         Class="mt-3">
+
+                    @foreach (var feature in Features)
+                    {
+                        <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle"
+                                     IconColor="Color.Success">
+                            @feature
+                        </MudListItem>
+                    }
+
+                </MudList>
+
+            </MudPaper>
+
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+
+            <MudPaper Class="about-card pa-5">
+
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Spacing="2">
+
+                    <MudIcon Icon="@Icons.Material.Filled.Memory"
+                             Color="Color.Secondary"
+                             Size="Size.Large" />
+
+                    <MudText Typo="Typo.h5">
+                        Tecnologías
+                    </MudText>
+
+                </MudStack>
+
+                <MudList T="string" Dense="true"
+                         Class="mt-3">
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Code">
+                        .NET 9
+                    </MudListItem>
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Web">
+                        Blazor Server
+                    </MudListItem>
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Palette">
+                        MudBlazor
+                    </MudListItem>
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Storage">
+                        SQLite + Entity Framework Core
+                    </MudListItem>
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.LiveTv">
+                        Jellyfin API
+                    </MudListItem>
+
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Movie">
+                        TMDb API
+                    </MudListItem>
+
+                </MudList>
+
+            </MudPaper>
+
+        </MudItem>
+
+        <MudItem xs="12">
+
+            <MudPaper Class="about-card pa-5">
+
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Justify="Justify.SpaceBetween"
+                          Class="about-diagnostics-header">
+
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Spacing="2">
+
+                        <MudIcon Icon="@Icons.Material.Filled.MonitorHeart"
+                                 Color="Color.Info"
+                                 Size="Size.Large" />
+
+                        <MudText Typo="Typo.h5">
+                            Información de diagnóstico
+                        </MudText>
+
+                    </MudStack>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.ContentCopy"
+                               OnClick="CopyDiagnosticsAsync">
+                        Copiar diagnóstico
+                    </MudButton>
+
+                </MudStack>
+
+                @if (_loading)
+                {
+                    <MudProgressLinear Indeterminate="true"
+                                       Color="Color.Primary"
+                                       Class="mt-4" />
+                }
+                else
+                {
+                    <MudGrid Spacing="2"
+                             Class="mt-3">
+
+                        <MudItem xs="12" sm="6" md="3">
+                            <div class="about-stat">
+                                <span>Series</span>
+                                <strong>@_series</strong>
+                            </div>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="3">
+                            <div class="about-stat">
+                                <span>Temporadas</span>
+                                <strong>@_seasons</strong>
+                            </div>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="3">
+                            <div class="about-stat">
+                                <span>Episodios</span>
+                                <strong>@_episodes</strong>
+                            </div>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="3">
+                            <div class="about-stat">
+                                <span>Bibliotecas seleccionadas</span>
+                                <strong>@_selectedLibraries</strong>
+                            </div>
+                        </MudItem>
+
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudGrid Spacing="2">
+
+                        <MudItem xs="12" md="6">
+                            <div class="about-diagnostic-line">
+                                <span>JellyInspector creado y configurado por Raúl Beltrán</span>
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@(_jellyfinConfigured ? Color.Success : Color.Error)">
+                                    @(_jellyfinConfigured ? "Sí" : "No")
+                                </MudChip>
+                            </div>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <div class="about-diagnostic-line">
+                                <span>TMDb configurado</span>
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@(_tmdbConfigured ? Color.Success : Color.Error)">
+                                    @(_tmdbConfigured ? "Sí" : "No")
+                                </MudChip>
+                            </div>
+                        </MudItem>
+
+                    </MudGrid>
+                }
+
+            </MudPaper>
+
+        </MudItem>
+
+    </MudGrid>
+
+    <MudText Typo="Typo.caption"
+             Align="Align.Center"
+             Color="Color.Secondary"
+             Class="about-footer">
+        JellyInspector · Versión 0.9.0-beta
+    </MudText>
+
+</MudContainer>
+
+<style>
+    .about-page {
+        padding-top: 20px;
+        padding-bottom: 40px;
+    }
+
+    .about-hero {
+        text-align: center;
+        border: 1px solid var(--mud-palette-lines-default);
+        background:
+            radial-gradient(circle at top,
+                color-mix(in srgb, var(--mud-palette-primary) 18%, transparent),
+                transparent 55%),
+            var(--mud-palette-surface);
+    }
+
+    .about-logo-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 18px;
+    }
+
+    .about-logo {
+        font-size: 86px !important;
+        filter: drop-shadow(0 0 18px
+            color-mix(in srgb, var(--mud-palette-primary) 45%, transparent));
+    }
+
+    .about-title {
+        font-weight: 800;
+        letter-spacing: -.03em;
+    }
+
+    .about-version-row {
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
+
+    .about-description {
+        max-width: 760px;
+        margin: 22px auto 0;
+        color: var(--mud-palette-text-secondary);
+        line-height: 1.7;
+    }
+
+    .about-card {
+        height: 100%;
+        border: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .about-diagnostics-header {
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .about-stat {
+        padding: 16px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: var(--mud-default-borderradius);
+        background: color-mix(
+            in srgb,
+            var(--mud-palette-primary) 7%,
+            var(--mud-palette-surface));
+    }
+
+    .about-stat span {
+        display: block;
+        color: var(--mud-palette-text-secondary);
+        font-size: .8rem;
+    }
+
+    .about-stat strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1.55rem;
+    }
+
+    .about-diagnostic-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 0;
+    }
+
+    .about-footer {
+        display: block;
+        margin-top: 26px;
+    }
+
+    @@media (max-width: 700px) {
+        .about-hero {
+            padding: 28px 20px !important;
+        }
+
+        .about-logo {
+            font-size: 66px !important;
+        }
+
+        .about-diagnostics-header {
+            align-items: flex-start !important;
+        }
+    }
+</style>
+
+@code
+{
+    private static readonly string[] Features =
+    [
+        "Dashboard de salud de la biblioteca",
+        "Escaneo completo y por serie",
+        "Detección de episodios y temporadas faltantes",
+        "Comparación con TMDb",
+        "Valoraciones y número de votos de TMDb",
+        "Selección de múltiples bibliotecas de series",
+        "Cancelación y seguimiento del progreso",
+        "Acceso directo a Jellyfin"
+    ];
+
+    private bool _loading = true;
+    private int _series;
+    private int _seasons;
+    private int _episodes;
+    private int _selectedLibraries;
+    private bool _jellyfinConfigured;
+    private bool _tmdbConfigured;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dashboard =
+                await DashboardService.GetAsync();
+
+            _series = dashboard.Series;
+            _seasons = dashboard.Seasons;
+            _episodes = dashboard.Episodes;
+
+            var settings =
+                await DbContext.AppSettings
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(item => item.Id == 1);
+
+            _jellyfinConfigured =
+                settings is not null &&
+                !string.IsNullOrWhiteSpace(settings.JellyfinServerUrl) &&
+                !string.IsNullOrWhiteSpace(settings.JellyfinApiKey);
+
+            _tmdbConfigured =
+                settings is not null &&
+                !string.IsNullOrWhiteSpace(settings.TmdbApiKey);
+
+            _selectedLibraries =
+                settings?.SelectedSeriesLibraryIds?
+                    .Split(
+                        ';',
+                        StringSplitOptions.RemoveEmptyEntries |
+                        StringSplitOptions.TrimEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count()
+                ?? 0;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CopyDiagnosticsAsync()
+    {
+        var diagnostics = string.Join(
+            Environment.NewLine,
+            "JellyInspector 0.9.0-beta",
+            ".NET 9",
+            "SQLite",
+            $"Series: {_series}",
+            $"Temporadas: {_seasons}",
+            $"Episodios: {_episodes}",
+            $"Bibliotecas seleccionadas: {_selectedLibraries}",
+            $"Jellyfin configurado: {(_jellyfinConfigured ? "Sí" : "No")}",
+            $"TMDb configurado: {(_tmdbConfigured ? "Sí" : "No")}");
+
+        await JSRuntime.InvokeVoidAsync(
+            "navigator.clipboard.writeText",
+            diagnostics);
+
+        Snackbar.Add(
+            "Información de diagnóstico copiada.",
+            Severity.Success);
+    }
+}

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Mis bibliotecas</title>
+</head>
+<body>
+<div id="JellyInspectorLibraries"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage ji-page">
+
+    <div data-role="content">
+        <main class="ji-content">
+            <header class="ji-header">
+                <div>
+                    <div class="ji-kicker">JELLYINSPECTOR</div>
+                    <h1>Mis bibliotecas</h1>
+                    <p>
+                        Selecciona una o varias bibliotecas de series.
+                        Solo se analizarán las bibliotecas marcadas.
+                    </p>
+                </div>
+
+                <button id="jiRefreshLibraries"
+                        is="emby-button"
+                        type="button"
+                        class="raised emby-button ji-button ji-button-secondary">
+                    Actualizar
+                </button>
+            </header>
+
+            <section id="jiError"
+                     class="ji-message ji-message-error"
+                     hidden>
+            </section>
+
+            <section id="jiSuccess"
+                     class="ji-message ji-message-success"
+                     hidden>
+            </section>
+
+            <section class="ji-toolbar">
+                <div class="ji-selection-summary">
+                    <strong id="jiSelectedCount">0</strong>
+                    <span>biblioteca(s) seleccionada(s)</span>
+                </div>
+
+                <div class="ji-toolbar-actions">
+                    <button id="jiSelectAll"
+                            is="emby-button"
+                            type="button"
+                            class="emby-button ji-button ji-button-link">
+                        Seleccionar todas
+                    </button>
+
+                    <button id="jiClearSelection"
+                            is="emby-button"
+                            type="button"
+                            class="emby-button ji-button ji-button-link">
+                        Limpiar
+                    </button>
+                </div>
+            </section>
+
+            <section id="jiLoading"
+                     class="ji-state-card">
+                <div class="ji-spinner"></div>
+                <span>Cargando bibliotecas de Jellyfin...</span>
+            </section>
+
+            <section id="jiLibrariesGrid"
+                     class="ji-library-grid"
+                     hidden>
+            </section>
+
+            <section id="jiEmpty"
+                     class="ji-state-card"
+                     hidden>
+                <div class="ji-empty-icon">▣</div>
+                <h2>No hay bibliotecas de series</h2>
+                <p>
+                    Jellyfin no ha devuelto ninguna biblioteca configurada
+                    como programas de televisión.
+                </p>
+            </section>
+
+            <footer class="ji-footer">
+                <button id="jiSave"
+                        is="emby-button"
+                        type="button"
+                        class="raised button-submit emby-button ji-button">
+                    Guardar selección
+                </button>
+
+                <button id="jiSaveAndScan"
+                        is="emby-button"
+                        type="button"
+                        class="raised emby-button ji-button ji-button-secondary">
+                    Guardar e ir a escanear
+                </button>
+            </footer>
+        </main>
+    </div>
+
+    <style>
+#JellyInspectorLibraries {
+    --ji-bg: #0d1117;
+    --ji-panel: #151b24;
+    --ji-panel-soft: #19212c;
+    --ji-border: rgba(255, 255, 255, .09);
+    --ji-primary: #3399ff;
+    --ji-success: #40d98b;
+    --ji-danger: #ff6675;
+    --ji-text: #f1f5f9;
+    --ji-muted: #8d9bad;
+
+    min-height: 100%;
+    color: var(--ji-text);
+    background:
+        radial-gradient(
+            circle at 78% 0%,
+            rgba(51, 153, 255, .12),
+            transparent 34%),
+        var(--ji-bg);
+}
+
+#JellyInspectorLibraries .ji-content {
+    width: min(1250px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 34px 0 60px;
+}
+
+#JellyInspectorLibraries .ji-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+#JellyInspectorLibraries .ji-kicker {
+    color: var(--ji-success);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+}
+
+#JellyInspectorLibraries h1 {
+    margin: 5px 0;
+    color: var(--ji-text);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1;
+}
+
+#JellyInspectorLibraries .ji-header p {
+    max-width: 720px;
+    margin: 0;
+    color: var(--ji-muted);
+    line-height: 1.5;
+}
+
+#JellyInspectorLibraries .ji-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    border: 1px solid var(--ji-border);
+    border-radius: 14px;
+    background: var(--ji-panel);
+}
+
+#JellyInspectorLibraries .ji-selection-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+#JellyInspectorLibraries .ji-selection-summary strong {
+    color: var(--ji-primary);
+    font-size: 1.35rem;
+}
+
+#JellyInspectorLibraries .ji-selection-summary span {
+    color: var(--ji-muted);
+    font-size: .85rem;
+}
+
+#JellyInspectorLibraries .ji-toolbar-actions,
+#JellyInspectorLibraries .ji-footer {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#JellyInspectorLibraries .ji-button {
+    min-height: 40px;
+}
+
+#JellyInspectorLibraries .ji-button-secondary {
+    border: 1px solid var(--ji-border) !important;
+    background: var(--ji-panel-soft) !important;
+    color: var(--ji-text) !important;
+}
+
+#JellyInspectorLibraries .ji-button-link {
+    min-height: 34px;
+    padding: 0 12px;
+    background: transparent;
+    color: #9acbff;
+}
+
+#JellyInspectorLibraries .ji-library-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fill, minmax(260px, 1fr));
+    gap: 15px;
+}
+
+#JellyInspectorLibraries .ji-library-card {
+    position: relative;
+    display: block;
+    min-height: 150px;
+    padding: 20px;
+    overflow: hidden;
+    border: 1px solid var(--ji-border);
+    border-radius: 16px;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, .025),
+            transparent 50%),
+        var(--ji-panel);
+    cursor: pointer;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .14);
+    transition:
+        transform .17s ease,
+        border-color .17s ease,
+        box-shadow .17s ease;
+}
+
+#JellyInspectorLibraries .ji-library-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(51, 153, 255, .55);
+}
+
+#JellyInspectorLibraries .ji-library-card.is-selected {
+    border-color: var(--ji-primary);
+    box-shadow:
+        0 0 0 1px rgba(51, 153, 255, .18),
+        0 16px 38px rgba(0, 0, 0, .17);
+}
+
+#JellyInspectorLibraries .ji-library-checkbox {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#JellyInspectorLibraries .ji-library-check {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid var(--ji-border);
+    border-radius: 50%;
+    background: var(--ji-panel-soft);
+    color: transparent;
+    font-weight: 900;
+}
+
+#JellyInspectorLibraries .ji-library-card.is-selected
+.ji-library-check {
+    border-color: var(--ji-success);
+    background: rgba(64, 217, 139, .13);
+    color: var(--ji-success);
+}
+
+#JellyInspectorLibraries .ji-library-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    margin-bottom: 17px;
+    border-radius: 12px;
+    background: rgba(51, 153, 255, .11);
+    color: var(--ji-primary);
+    font-size: 1.35rem;
+}
+
+#JellyInspectorLibraries .ji-library-name {
+    overflow: hidden;
+    margin: 0;
+    padding-right: 38px;
+    color: var(--ji-text);
+    font-size: 1.08rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#JellyInspectorLibraries .ji-library-count {
+    display: block;
+    margin-top: 6px;
+    color: var(--ji-success);
+    font-size: .82rem;
+    font-weight: 750;
+}
+
+#JellyInspectorLibraries .ji-library-path {
+    display: block;
+    overflow: hidden;
+    margin-top: 10px;
+    color: var(--ji-muted);
+    font-size: .74rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#JellyInspectorLibraries .ji-state-card {
+    display: flex;
+    min-height: 245px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid var(--ji-border);
+    border-radius: 16px;
+    background: var(--ji-panel);
+    color: var(--ji-muted);
+    text-align: center;
+}
+
+#JellyInspectorLibraries .ji-state-card h2 {
+    margin: 0;
+    color: var(--ji-text);
+}
+
+#JellyInspectorLibraries .ji-state-card p {
+    max-width: 520px;
+    margin: 0;
+}
+
+#JellyInspectorLibraries .ji-spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid rgba(255, 255, 255, .10);
+    border-top-color: var(--ji-primary);
+    border-radius: 50%;
+    animation: ji-libraries-spin .8s linear infinite;
+}
+
+#JellyInspectorLibraries .ji-empty-icon {
+    color: var(--ji-primary);
+    font-size: 2rem;
+}
+
+#JellyInspectorLibraries .ji-message {
+    margin-bottom: 16px;
+    padding: 13px 16px;
+    border-radius: 11px;
+}
+
+#JellyInspectorLibraries .ji-message-error {
+    border: 1px solid rgba(255, 102, 117, .3);
+    background: rgba(255, 102, 117, .1);
+    color: #ffabb3;
+}
+
+#JellyInspectorLibraries .ji-message-success {
+    border: 1px solid rgba(64, 217, 139, .3);
+    background: rgba(64, 217, 139, .1);
+    color: #90edbd;
+}
+
+#JellyInspectorLibraries .ji-footer {
+    justify-content: flex-end;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--ji-border);
+}
+
+@keyframes ji-libraries-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 720px) {
+    #JellyInspectorLibraries .ji-content {
+        width: min(100% - 26px, 1250px);
+    }
+
+    #JellyInspectorLibraries .ji-header,
+    #JellyInspectorLibraries .ji-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    #JellyInspectorLibraries .ji-footer {
+        flex-direction: column;
+    }
+
+    #JellyInspectorLibraries .ji-footer button,
+    #JellyInspectorLibraries .ji-header button {
+        width: 100%;
+    }
+}
+
+    </style>
+
+    <script type="text/javascript">
+(() => {
+    const PLUGIN_ID =
+        '7d3e3b70-29bc-4e51-b20f-68c416e73a8c';
+
+    const PAGE_ID =
+        'JellyInspectorLibraries';
+
+    let page;
+    let elements;
+    let libraries = [];
+    const selectedIds = new Set();
+
+    function normalizeId(value) {
+        return String(value || '')
+            .replaceAll('-', '')
+            .trim()
+            .toLowerCase();
+    }
+
+    function getPage() {
+        return document.getElementById(PAGE_ID);
+    }
+
+    function getElements() {
+        return {
+            loading:
+                page.querySelector('#jiLoading'),
+
+            grid:
+                page.querySelector('#jiLibrariesGrid'),
+
+            empty:
+                page.querySelector('#jiEmpty'),
+
+            error:
+                page.querySelector('#jiError'),
+
+            success:
+                page.querySelector('#jiSuccess'),
+
+            count:
+                page.querySelector('#jiSelectedCount'),
+
+            refresh:
+                page.querySelector('#jiRefreshLibraries'),
+
+            selectAll:
+                page.querySelector('#jiSelectAll'),
+
+            clear:
+                page.querySelector('#jiClearSelection'),
+
+            save:
+                page.querySelector('#jiSave'),
+
+            saveAndScan:
+                page.querySelector('#jiSaveAndScan')
+        };
+    }
+
+    function hideMessages() {
+        elements.error.hidden = true;
+        elements.success.hidden = true;
+    }
+
+    function showError(message) {
+        elements.success.hidden = true;
+        elements.error.textContent = message;
+        elements.error.hidden = false;
+    }
+
+    function showSuccess(message) {
+        elements.error.hidden = true;
+        elements.success.textContent = message;
+        elements.success.hidden = false;
+    }
+
+    async function fetchJson(path, query) {
+        const response =
+            await ApiClient.fetch({
+                url: ApiClient.getUrl(path, query),
+                type: 'GET'
+            });
+
+        if (!response.ok) {
+            throw response;
+        }
+
+        return await response.json();
+    }
+
+    async function putJson(path, body) {
+        const response =
+            await ApiClient.fetch({
+                url: ApiClient.getUrl(path),
+                type: 'POST',
+                data:
+                    JSON.stringify(body),
+                contentType:
+                    'application/json'
+            });
+
+        if (!response.ok) {
+            throw response;
+        }
+
+        return response;
+    }
+
+    async function readPluginConfiguration() {
+        return await fetchJson(
+            'Plugins/' +
+            PLUGIN_ID +
+            '/Configuration');
+    }
+
+    async function savePluginConfiguration(config) {
+        return await putJson(
+            'Plugins/' +
+            PLUGIN_ID +
+            '/Configuration',
+            config);
+    }
+
+    function getSelectedIdsFromConfig(config) {
+        return String(
+            config.SelectedLibraryIds ||
+            config.selectedLibraryIds ||
+            '')
+            .split(';')
+            .map(normalizeId)
+            .filter(Boolean);
+    }
+
+    function getCollectionType(library) {
+        return String(
+            library.CollectionType ||
+            library.collectionType ||
+            '')
+            .trim()
+            .toLowerCase();
+    }
+
+    function isSeriesLibrary(library) {
+        const type =
+            getCollectionType(library);
+
+        return type === 'tvshows' ||
+               type === 'tvshow' ||
+               type === 'series';
+    }
+
+    function getLibraryId(library) {
+        return normalizeId(
+            library.ItemId ||
+            library.itemId ||
+            library.Id ||
+            library.id);
+    }
+
+    function getLibraryName(library) {
+        return String(
+            library.Name ||
+            library.name ||
+            'Biblioteca');
+    }
+
+    function getLibraryLocations(library) {
+        const locations =
+            library.Locations ||
+            library.locations ||
+            [];
+
+        return Array.isArray(locations)
+            ? locations
+            : [];
+    }
+
+    async function getSeriesCount(libraryId) {
+        try {
+            const result =
+                await fetchJson(
+                    'Items',
+                    {
+                        ParentId:
+                            libraryId,
+
+                        UserId:
+                            ApiClient
+                                .getCurrentUserId(),
+
+                        IncludeItemTypes:
+                            'Series',
+
+                        Recursive:
+                            true,
+
+                        Limit:
+                            0,
+
+                        EnableTotalRecordCount:
+                            true
+                    });
+
+            return Number(
+                result.TotalRecordCount ??
+                result.totalRecordCount ??
+                0);
+        }
+        catch (error) {
+            if (error instanceof Response) {
+                console.warn(
+                    'Biblioteca sin acceso:',
+                    libraryId,
+                    error.status);
+            }
+            else {
+                console.warn(
+                    'No se pudo contar la biblioteca:',
+                    libraryId,
+                    error);
+            }
+
+            return 0;
+        }
+    }
+
+    function updateSelectionCount() {
+        elements.count.textContent =
+            String(selectedIds.size);
+    }
+
+    function updateCardSelection(card, libraryId) {
+        const selected =
+            selectedIds.has(libraryId);
+
+        card.classList.toggle(
+            'is-selected',
+            selected);
+
+        const checkbox =
+            card.querySelector(
+                '.ji-library-checkbox');
+
+        if (checkbox) {
+            checkbox.checked = selected;
+        }
+    }
+
+    function toggleLibrary(libraryId, card) {
+        if (selectedIds.has(libraryId)) {
+            selectedIds.delete(libraryId);
+        }
+        else {
+            selectedIds.add(libraryId);
+        }
+
+        updateCardSelection(
+            card,
+            libraryId);
+
+        updateSelectionCount();
+        hideMessages();
+    }
+
+    function createLibraryCard(library) {
+        const card =
+            document.createElement('label');
+
+        card.className =
+            'ji-library-card';
+
+        card.innerHTML = [
+            '<input class="ji-library-checkbox" type="checkbox">',
+            '<span class="ji-library-check">✓</span>',
+            '<span class="ji-library-icon">▣</span>',
+            '<h2 class="ji-library-name"></h2>',
+            '<span class="ji-library-count"></span>',
+            '<span class="ji-library-path"></span>'
+        ].join('');
+
+        card.querySelector(
+            '.ji-library-name')
+            .textContent =
+                library.name;
+
+        card.querySelector(
+            '.ji-library-count')
+            .textContent =
+                String(library.seriesCount) +
+                ' serie(s)';
+
+        card.querySelector(
+            '.ji-library-path')
+            .textContent =
+                library.locations.length > 0
+                    ? library.locations.join(' · ')
+                    : 'Sin ruta informada';
+
+        card.addEventListener(
+            'click',
+            event => {
+                event.preventDefault();
+
+                toggleLibrary(
+                    library.id,
+                    card);
+            });
+
+        updateCardSelection(
+            card,
+            library.id);
+
+        return card;
+    }
+
+    function renderLibraries() {
+        elements.grid.replaceChildren();
+
+        for (const library of libraries) {
+            elements.grid.appendChild(
+                createLibraryCard(library));
+        }
+
+        updateSelectionCount();
+    }
+
+    async function loadLibraries() {
+        hideMessages();
+
+        elements.loading.hidden = false;
+        elements.grid.hidden = true;
+        elements.empty.hidden = true;
+
+        try {
+            const virtualFolders =
+                await fetchJson(
+                    'Library/VirtualFolders');
+
+            const config =
+                await readPluginConfiguration();
+
+            selectedIds.clear();
+
+            for (const id of
+                 getSelectedIdsFromConfig(config)) {
+                selectedIds.add(id);
+            }
+
+            const seriesLibraries =
+                virtualFolders
+                    .filter(isSeriesLibrary);
+
+            libraries =
+                await Promise.all(
+                    seriesLibraries.map(
+                        async folder => {
+                            const id =
+                                getLibraryId(folder);
+
+                            return {
+                                id:
+                                    id,
+
+                                name:
+                                    getLibraryName(
+                                        folder),
+
+                                locations:
+                                    getLibraryLocations(
+                                        folder),
+
+                                seriesCount:
+                                    await getSeriesCount(
+                                        id)
+                            };
+                        }));
+
+            libraries.sort(
+                (left, right) =>
+                    left.name.localeCompare(
+                        right.name,
+                        'es',
+                        {
+                            sensitivity:
+                                'base'
+                        }));
+
+            elements.loading.hidden = true;
+
+            if (libraries.length === 0) {
+                elements.empty.hidden = false;
+                return;
+            }
+
+            renderLibraries();
+            elements.grid.hidden = false;
+        }
+        catch (error) {
+            elements.loading.hidden = true;
+
+            console.error(
+                'JellyInspector Libraries:',
+                error);
+
+            if (error instanceof Response) {
+                showError(
+                    'Error HTTP ' +
+                    error.status +
+                    ' al cargar las bibliotecas.');
+
+                return;
+            }
+
+            showError(
+                'No se pudieron cargar las bibliotecas. ' +
+                String(
+                    error?.message ||
+                    error));
+        }
+    }
+
+    async function saveSelection(goToScanner) {
+        hideMessages();
+        Dashboard.showLoadingMsg();
+
+        try {
+            const config =
+                await readPluginConfiguration();
+
+            config.SelectedLibraryIds =
+                Array.from(selectedIds)
+                    .sort()
+                    .join(';');
+
+            await savePluginConfiguration(
+                config);
+
+            showSuccess(
+                'Selección guardada correctamente.');
+
+            if (goToScanner) {
+                setTimeout(
+                    () => {
+                        Dashboard.navigate(
+                            'configurationpage?name=' +
+                            'JellyInspectorScanner');
+                    },
+                    350);
+            }
+        }
+        catch (error) {
+            console.error(
+                'JellyInspector Save Libraries:',
+                error);
+
+            if (error instanceof Response) {
+                showError(
+                    'Error HTTP ' +
+                    error.status +
+                    ' al guardar la selección.');
+            }
+            else {
+                showError(
+                    'No se pudo guardar la selección. ' +
+                    String(
+                        error?.message ||
+                        error));
+            }
+        }
+        finally {
+            Dashboard.hideLoadingMsg();
+        }
+    }
+
+    function bindEvents() {
+        elements.refresh.addEventListener(
+            'click',
+            loadLibraries);
+
+        elements.selectAll.addEventListener(
+            'click',
+            () => {
+                selectedIds.clear();
+
+                for (const library of libraries) {
+                    selectedIds.add(
+                        library.id);
+                }
+
+                renderLibraries();
+                hideMessages();
+            });
+
+        elements.clear.addEventListener(
+            'click',
+            () => {
+                selectedIds.clear();
+                renderLibraries();
+                hideMessages();
+            });
+
+        elements.save.addEventListener(
+            'click',
+            () => saveSelection(false));
+
+        elements.saveAndScan.addEventListener(
+            'click',
+            () => saveSelection(true));
+    }
+
+    function initialize() {
+        page = getPage();
+
+        if (!page) {
+            console.error(
+                'No se encontró la página ' +
+                PAGE_ID +
+                '.');
+
+            return;
+        }
+
+        if (page.dataset.jiInitialized === 'true') {
+            loadLibraries();
+            return;
+        }
+
+        page.dataset.jiInitialized = 'true';
+        elements = getElements();
+
+        bindEvents();
+        loadLibraries();
+    }
+
+    document.addEventListener(
+        'pageshow',
+        event => {
+            const target =
+                event.target;
+
+            if (target?.id === PAGE_ID ||
+                getPage()) {
+                initialize();
+            }
+        });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            initialize,
+            {
+                once:
+                    true
+            });
+    }
+    else {
+        initialize();
+    }
+})();
+
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+﻿@using MudBlazor
+
+<div class="nav-menu-root @(IsCompact ? "nav-menu-compact" : "nav-menu-expanded")">
+
+    <div class="nav-menu-top">
+
+        <MudNavMenu Dense="true"
+                    Class="pa-2">
+
+            <MudTooltip Text="Dashboard"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/dashboard"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Dashboard"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Dashboard</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+            <MudTooltip Text="Mis series"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/library"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.LiveTv"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Mis series</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+            <MudTooltip Text="Mis bibliotecas"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/libraries"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.VideoLibrary"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Mis bibliotecas</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+            <MudTooltip Text="Escanear series"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/scanner"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.ManageSearch"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Escanear series</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+        </MudNavMenu>
+
+    </div>
+
+    <div class="nav-menu-bottom">
+
+        <MudDivider />
+
+        <MudNavMenu Dense="true"
+                    Class="pa-2">
+
+            <MudTooltip Text="Configuración"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/settings"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Settings"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Configuración</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+            <MudTooltip Text="Acerca de"
+                        Placement="Placement.Right"
+                        Disabled="@(!IsCompact)">
+                <MudNavLink Href="/about"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Info"
+                            Class="nav-menu-link">
+                    @if (!IsCompact)
+                    {
+                        <span>Acerca de</span>
+                    }
+                </MudNavLink>
+            </MudTooltip>
+
+        </MudNavMenu>
+
+    </div>
+
+</div>
+
+@code
+{
+    [Parameter]
+    public bool IsCompact { get; set; }
+}

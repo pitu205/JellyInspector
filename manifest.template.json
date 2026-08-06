@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "7d3e3b70-29bc-4e51-b20f-68c416e73a8c",
+    "name": "JellyInspector",
+    "overview": "Integración entre Jellyfin y JellyInspector.",
+    "description": "Plugin puente para abrir y comprobar JellyInspector desde Jellyfin.",
+    "owner": "JellyInspector",
+    "category": "General",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Primera versión puente para Jellyfin 10.11.8.",
+        "targetAbi": "10.11.8.0",
+        "sourceUrl": "REEMPLAZAR_CON_URL_DEL_ZIP",
+        "checksum": "REEMPLAZAR_CON_SHA256",
+        "timestamp": "2026-08-02T00:00:00Z"
+      }
+    ]
+  }
+]

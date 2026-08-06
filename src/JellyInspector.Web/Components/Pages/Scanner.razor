@@ -1,0 +1,2709 @@
+@page "/scanner"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Library
+@using JellyInspector.Application.Scanning
+@using JellyInspector.Web.Components.Scanner
+@using JellyInspector.Application.Interfaces
+@using Microsoft.JSInterop
+@using ClosedXML.Excel
+@using System.Text
+
+@inject IScannerService ScannerService
+@inject ILastScanService LastScanService
+@inject ILibraryService LibraryService
+@inject IJellyfinService JellyfinService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Escaneo</PageTitle>
+
+<MudStack Row="true"
+          AlignItems="AlignItems.Center"
+          Justify="Justify.SpaceBetween"
+          Class="mb-4">
+
+    <div>
+        <MudText Typo="Typo.h4">
+            Escaneo
+        </MudText>
+
+        <MudText Typo="Typo.body2"
+                 Color="Color.Secondary">
+            Análisis de incidencias de la biblioteca
+        </MudText>
+    </div>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ManageSearch"
+               Disabled="@IsScanRunning"
+               OnClick="StartScan">
+
+        @if (IsScanRunning)
+        {
+            <MudProgressCircular Size="Size.Small"
+                                 Indeterminate="true"
+                                 Class="mr-2" />
+        }
+
+        Escanear biblioteca
+
+    </MudButton>
+
+</MudStack>
+
+@if (_loadingLastScan)
+{
+    <MudPaper Class="pa-6 mb-4"
+              Elevation="1">
+
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Spacing="2">
+
+            <MudProgressCircular Indeterminate="true"
+                                 Color="Color.Primary"
+                                 Size="Size.Small" />
+
+            <MudText>
+                Cargando el último escaneo...
+            </MudText>
+
+        </MudStack>
+
+    </MudPaper>
+}
+
+@if (IsScanRunning)
+{
+    <MudPaper Class="pa-4 mb-4 scan-running-panel"
+              Elevation="1">
+
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Justify="Justify.SpaceBetween"
+                  Class="mb-3">
+
+            <MudText Typo="Typo.h6">
+                Analizando biblioteca
+            </MudText>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.StopCircle"
+                       Disabled="@(!ScannerService.CanCancel || _cancellingScan)"
+                       OnClick="StopScanAsync">
+                @(_cancellingScan ? "Deteniendo..." : "Detener escaneo")
+            </MudButton>
+
+        </MudStack>
+
+        <MudProgressLinear Color="Color.Primary"
+                           Value="@ScannerService.Progress.Percentage"
+                           Rounded="true"
+                           Class="mb-3" />
+
+        <div class="scan-working-visual">
+
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch"
+                     Color="Color.Primary"
+                     Size="Size.Large"
+                     Class="scan-rotating-search" />
+
+            <MudText Typo="Typo.body2"
+                     Color="Color.Primary"
+                     Class="scan-working-phase">
+                Analizando biblioteca...
+            </MudText>
+
+            <MudText Typo="Typo.h6"
+                     Class="scan-working-series">
+                @(string.IsNullOrWhiteSpace(ScannerService.Progress.CurrentSeries)
+                    ? "Preparando escaneo..."
+                    : ScannerService.Progress.CurrentSeries)
+            </MudText>
+
+        </div>
+
+        <div class="scan-progress-summary">
+
+            <div class="scan-progress-stat">
+                <MudIcon Icon="@Icons.Material.Filled.Movie"
+                         Color="Color.Primary"
+                         Size="Size.Medium" />
+
+                <div>
+                    <strong>
+                        @ScannerService.Progress.Current /
+                        @ScannerService.Progress.Total
+                    </strong>
+                    <span>Series procesadas</span>
+                </div>
+            </div>
+
+            <div class="scan-progress-percent">
+                <MudProgressCircular Value="@ScannerService.Progress.Percentage"
+                                     Color="Color.Primary"
+                                     Size="Size.Large"
+                                     StrokeWidth="5" />
+
+                <strong>
+                    @ScannerService.Progress.Percentage.ToString("0.#") %
+                </strong>
+
+                <span>Progreso</span>
+            </div>
+
+            <div class="scan-progress-stat scan-progress-status">
+                <MudIcon Icon="@Icons.Material.Filled.Sync"
+                         Color="Color.Secondary"
+                         Size="Size.Medium" />
+
+                <div>
+                    <strong>En curso</strong>
+                    <span>Escaneo activo</span>
+                </div>
+            </div>
+
+        </div>
+
+    </MudPaper>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <MudAlert Severity="Severity.Error"
+              Variant="Variant.Filled"
+              Class="mb-4">
+
+        @_errorMessage
+
+    </MudAlert>
+}
+
+@if (!_loadingLastScan &&
+     _result is null &&
+     !IsScanRunning)
+{
+    <MudPaper Class="pa-8"
+              Elevation="1">
+
+        <MudStack AlignItems="AlignItems.Center"
+                  Spacing="3">
+
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch"
+                     Color="Color.Primary"
+                     Size="Size.Large" />
+
+            <MudText Typo="Typo.h6">
+                Todavía no se ha realizado ningún escaneo
+            </MudText>
+
+            <MudText Typo="Typo.body2"
+                     Color="Color.Secondary">
+
+                Pulsa «Escanear biblioteca» para analizar las series.
+
+            </MudText>
+
+        </MudStack>
+
+    </MudPaper>
+}
+
+@if (_result is not null &&
+     !IsScanRunning &&
+     !_loadingLastScan)
+{
+    <MudPaper Class="pa-3 mb-4 scan-health-panel"
+              Elevation="2">
+
+        <div class="scan-health-inline">
+
+            <div class="scan-health-title">
+                <MudText Typo="Typo.h6">
+                    Salud global de la biblioteca
+                </MudText>
+
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@GetLibraryHealthColor()"
+                         Variant="Variant.Filled"
+                         Icon="@GetLibraryHealthIcon()">
+                    @GetLibraryHealthLabel()
+                </MudChip>
+            </div>
+
+            <button type="button"
+                    class='@GetHealthFilterClass(ScanFilter.Perfect, "scan-health-status-perfect")'
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.Perfect))">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                         Color="Color.Success"
+                         Size="Size.Medium" />
+                <strong>@PerfectSeriesCount</strong>
+                <span>Perfectas</span>
+            </button>
+
+            <button type="button"
+                    class='@GetHealthFilterClass(ScanFilter.Airing, "scan-health-status-airing")'
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.Airing))">
+                <MudIcon Icon="@Icons.Material.Filled.LiveTv"
+                         Color="Color.Info"
+                         Size="Size.Medium" />
+                <strong>@AiringSeriesCount</strong>
+                <span>En emisión</span>
+            </button>
+
+            <button type="button"
+                    class='@GetHealthFilterClass(ScanFilter.Upcoming, "scan-health-status-upcoming")'
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.Upcoming))">
+                <MudIcon Icon="@Icons.Material.Filled.Schedule"
+                         Color="Color.Secondary"
+                         Size="Size.Medium" />
+                <strong>@UpcomingSeriesCount</strong>
+                <span>Próximamente</span>
+            </button>
+
+            <button type="button"
+                    class='@GetHealthFilterClass(ScanFilter.HealthWarnings, "scan-health-status-warning")'
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.HealthWarnings))">
+                <MudIcon Icon="@Icons.Material.Filled.WarningAmber"
+                         Color="Color.Warning"
+                         Size="Size.Medium" />
+                <strong>@WarningSeriesCount</strong>
+                <span>Con avisos</span>
+            </button>
+
+            <button type="button"
+                    class='@GetHealthFilterClass(ScanFilter.Critical, "scan-health-status-critical")'
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.Critical))">
+                <MudIcon Icon="@Icons.Material.Filled.Error"
+                         Color="Color.Error"
+                         Size="Size.Medium" />
+                <strong>@CriticalSeriesCount</strong>
+                <span>Críticas</span>
+            </button>
+
+            <div class="scan-health-progress">
+                <div class="scan-health-progress-header">
+                    <span>@_scanRows.Count series</span>
+                    <strong style="color: var(--mud-palette-@GetLibraryHealthCssColor());">
+                        @FormatLibraryHealth()
+                    </strong>
+                </div>
+
+                <MudProgressLinear Value="@LibraryHealthPercentage"
+                                   Color="@GetLibraryHealthColor()"
+                                   Rounded="true" />
+            </div>
+
+        </div>
+
+        <MudText Typo="Typo.caption"
+                 Color="Color.Secondary"
+                 Class="mt-2 scan-health-summary">
+            @GetLibrarySummary()
+        </MudText>
+
+    </MudPaper>
+
+    <MudGrid Spacing="2" Class="mb-4">
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <button type="button"
+                    class="@GetStatFilterClass(ScanFilter.All)"
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.All))">
+                <MudIcon Icon="@Icons.Material.Filled.LiveTv"
+                         Color="Color.Primary"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Series</MudText>
+                <MudText Typo="Typo.h5">@_result.Series</MudText>
+            </button>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <button type="button"
+                    class="@GetStatFilterClass(ScanFilter.All)"
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.All))">
+                <MudIcon Icon="@Icons.Material.Filled.VideoLibrary"
+                         Color="Color.Primary"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Episodios</MudText>
+                <MudText Typo="Typo.h5">@_result.Episodes</MudText>
+            </button>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <button type="button"
+                    class="@GetStatFilterClass(ScanFilter.WithIssues)"
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.WithIssues))">
+                <MudIcon Icon="@Icons.Material.Filled.Error"
+                         Color="@(AffectedSeriesCount > 0 ? Color.Error : Color.Success)"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Con incidencias</MudText>
+                <MudText Typo="Typo.h5"
+                         Color="@(AffectedSeriesCount > 0 ? Color.Error : Color.Success)">
+                    @AffectedSeriesCount
+                </MudText>
+            </button>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <button type="button"
+                    class="@GetStatFilterClass(ScanFilter.MissingEpisodes)"
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.MissingEpisodes))">
+                <MudIcon Icon="@Icons.Material.Filled.MovieFilter"
+                         Color="@(MissingEpisodeIssueCount > 0 ? Color.Error : Color.Success)"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Episodios faltantes</MudText>
+                <MudText Typo="Typo.h5"
+                         Color="@(MissingEpisodeIssueCount > 0 ? Color.Error : Color.Success)">
+                    @MissingEpisodeIssueCount
+                </MudText>
+            </button>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <button type="button"
+                    class="@GetStatFilterClass(ScanFilter.MissingSeasons)"
+                    @onclick="@(() => ApplyHealthFilter(ScanFilter.MissingSeasons))">
+                <MudIcon Icon="@Icons.Material.Filled.FolderOff"
+                         Color="@(MissingSeasonIssueCount > 0 ? Color.Warning : Color.Success)"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Temporadas faltantes</MudText>
+                <MudText Typo="Typo.h5"
+                         Color="@(MissingSeasonIssueCount > 0 ? Color.Warning : Color.Success)">
+                    @MissingSeasonIssueCount
+                </MudText>
+            </button>
+        </MudItem>
+
+        <MudItem xs="6" sm="4" md="3" lg="2">
+            <MudPaper Class="pa-4 scan-stat-card" Elevation="1">
+                <MudIcon Icon="@Icons.Material.Filled.Timer"
+                         Color="Color.Secondary"
+                         Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Duración</MudText>
+                <MudText Typo="Typo.h6">@FormatDuration(_result.Duration)</MudText>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+
+    @if (_scanRows.Count > 0)
+    {
+        <MudPaper Class="pa-4 mb-4"
+                  Elevation="1">
+
+            <MudGrid Spacing="2">
+
+                <MudItem xs="12" md="5">
+
+                    <MudTextField T="string"
+              @bind-Value="_search"
+              Placeholder="Buscar serie o incidencia..."
+              Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search"
+              Immediate="true"
+              Clearable="true"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense" />
+
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+
+                    <div class="scan-native-select-wrapper">
+                        <label for="scan-filter-select">Estado o incidencia</label>
+                        <select id="scan-filter-select"
+                                class="scan-native-select"
+                                @bind="_filter">
+                            <option value="@ScanFilter.All">Todas</option>
+                            <option value="@ScanFilter.WithIssues">Solo con incidencias</option>
+                            <option value="@ScanFilter.Complete">Solo completas</option>
+                            <option value="@ScanFilter.Perfect">Perfectas</option>
+                            <option value="@ScanFilter.HealthWarnings">Con avisos</option>
+                            <option value="@ScanFilter.Critical">Críticas</option>
+                            <option value="@ScanFilter.MissingEpisodes">Episodios faltantes</option>
+                            <option value="@ScanFilter.MissingSeasons">Temporadas faltantes</option>
+                            <option value="@ScanFilter.Airing">En emisión</option>
+                            <option value="@ScanFilter.Upcoming">Próximamente</option>
+                            <option value="@ScanFilter.Metadata">Metadatos</option>
+                            <option value="@ScanFilter.Duplicates">Duplicados</option>
+                        </select>
+                    </div>
+
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+
+                    <div class="scan-native-select-wrapper">
+                        <label for="scan-sort-select">Ordenar por</label>
+                        <select id="scan-sort-select"
+                                class="scan-native-select"
+                                @bind="_sort">
+                            <option value="@ScanSort.NameAsc">Nombre (A-Z)</option>
+                            <option value="@ScanSort.NameDesc">Nombre (Z-A)</option>
+                            <option value="@ScanSort.MostIssues">Más incidencias</option>
+                            <option value="@ScanSort.LeastIssues">Menos incidencias</option>
+                            <option value="@ScanSort.HighestCompletion">Mayor porcentaje completado</option>
+                            <option value="@ScanSort.LowestCompletion">Menor porcentaje completado</option>
+                            <option value="@ScanSort.HighestHealth">Mayor salud</option>
+                            <option value="@ScanSort.LowestHealth">Menor salud</option>
+                            <option value="@ScanSort.MostEpisodes">Más episodios</option>
+                            <option value="@ScanSort.LeastEpisodes">Menos episodios</option>
+                        </select>
+                    </div>
+
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Spacing="1"
+                              Class="h-100">
+
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="Color.Primary"
+                                 Variant="Variant.Outlined">
+
+                            @FilteredRows.Count() series
+
+                        </MudChip>
+
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="Color.Error"
+                                 Variant="Variant.Outlined">
+
+                            @FilteredRows.Count(
+                                row => GetVisibleIssues(row).Count > 0)
+                            con incidencias
+
+                        </MudChip>
+
+                    </MudStack>
+
+                </MudItem>
+
+                <MudItem xs="12">
+
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween"
+                              Spacing="2">
+
+                        <MudSwitch T="bool"
+                                   @bind-Value="_showSpecials"
+                                   Color="Color.Primary"
+                                   Label="Mostrar especiales (temporada 0)" />
+
+                        <MudButtonGroup Variant="Variant.Outlined"
+                                        Color="Color.Primary"
+                                        Size="Size.Small">
+
+                            <MudButton StartIcon="@Icons.Material.Filled.GridView"
+                                       Variant="@(_cardView ? Variant.Filled : Variant.Outlined)"
+                                       OnClick="@(() => _cardView = true)">
+                                Tarjetas
+                            </MudButton>
+
+                            <MudButton StartIcon="@Icons.Material.Filled.ViewList"
+                                       Variant="@(!_cardView ? Variant.Filled : Variant.Outlined)"
+                                       OnClick="@(() => _cardView = false)">
+                                Tabla
+                            </MudButton>
+
+                        </MudButtonGroup>
+
+                    </MudStack>
+
+                </MudItem>
+
+            </MudGrid>
+
+            <MudDivider Class="my-3" />
+
+            <MudStack Row="true"
+                      AlignItems="AlignItems.Center"
+                      Justify="Justify.SpaceBetween"
+                      Spacing="2">
+
+                <MudText Typo="Typo.caption"
+                         Color="Color.Secondary">
+                    La exportación respeta la búsqueda, el filtro y la ordenación actuales.
+                </MudText>
+
+                <MudStack Row="true"
+                          Spacing="1">
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Description"
+                               Disabled="@(!FilteredRows.Any())"
+                               OnClick="ExportCsvAsync">
+                        Exportar CSV
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.TableView"
+                               Disabled="@(!FilteredRows.Any())"
+                               OnClick="ExportExcelAsync">
+                        Exportar Excel
+                    </MudButton>
+
+                </MudStack>
+
+            </MudStack>
+
+        </MudPaper>
+
+        @if (_cardView)
+        {
+            <MudGrid Spacing="3">
+
+                @foreach (var row in FilteredRows)
+                {
+                    <MudItem xs="12" md="6" xl="4">
+
+                        <MudCard Class="@($"scan-series-card {GetCompletionBorderClass(row)}")" Elevation="2">
+
+                            <MudCardContent>
+
+                                <MudStack Row="true"
+                                          AlignItems="AlignItems.Start"
+                                          Spacing="3">
+
+                                    @if (row.Series is not null &&
+                                         !string.IsNullOrWhiteSpace(row.Series.PosterTag))
+                                    {
+                                        <MudImage Src="@GetPosterUrl(row.Series)"
+                                                  Alt="@row.Name"
+                                                  Width="112"
+                                                  Height="166"
+                                                  ObjectFit="ObjectFit.Cover"
+                                                  Class="scan-card-poster" />
+                                    }
+                                    else
+                                    {
+                                        <MudPaper Width="112px"
+                                                  Height="166px"
+                                                  Class="d-flex align-center justify-center scan-card-poster">
+                                            <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported"
+                                                     Size="Size.Large" />
+                                        </MudPaper>
+                                    }
+
+                                    <MudStack Spacing="2" Class="flex-grow-1 scan-card-main">
+
+                                        <MudStack Row="true"
+                                                  AlignItems="AlignItems.Start"
+                                                  Justify="Justify.SpaceBetween"
+                                                  Spacing="2">
+
+                                            <div>
+                                                <MudText Typo="Typo.h6"
+                                                         Class="scan-series-title"
+                                                         @onclick="@(() => OpenSeries(row.JellyfinId))">
+                                                    @row.Name
+                                                </MudText>
+
+                                                <MudText Typo="Typo.caption"
+                                                         Color="Color.Secondary">
+                                                    @(row.Series?.ProductionYear > 0
+                                                        ? row.Series.ProductionYear.ToString()
+                                                        : "Año desconocido")
+                                                    · @(row.Series?.SeasonCount ?? 0) temporada(s)
+                                                    · @(row.Series?.EpisodeCount ?? 0) episodio(s)
+                                                </MudText>
+
+                                                @if ((row.Series?.TmdbVoteAverage ?? 0) > 0)
+                                                {
+                                                    <div class="scan-series-rating">
+                                                        <div class="scan-series-rating-stars"
+                                                             title="@($"TMDb {row.Series!.TmdbVoteAverage:0.0}/10")">
+                                                            @for (var star = 1; star <= 5; star++)
+                                                            {
+                                                                <MudIcon Icon="@(row.Series.TmdbVoteAverage / 2d >= star
+                                                                    ? Icons.Material.Filled.Star
+                                                                    : row.Series.TmdbVoteAverage / 2d >= star - 0.5
+                                                                        ? Icons.Material.Filled.StarHalf
+                                                                        : Icons.Material.Filled.StarBorder)"
+                                                                         Size="Size.Small"
+                                                                         Color="Color.Warning" />
+                                                            }
+                                                        </div>
+
+                                                        <MudText Typo="Typo.body2"
+                                                                 Class="scan-rating-value">
+                                                            @row.Series.TmdbVoteAverage.ToString("0.0")/10
+                                                        </MudText>
+
+                                                        <MudText Typo="Typo.caption"
+                                                                 Color="Color.Secondary">
+                                                            TMDb · @FormatVotes(row.Series.TmdbVoteCount) votos
+                                                        </MudText>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <MudChip T="string"
+                                                     Size="Size.Small"
+                                                     Color="@GetRowColor(row)"
+                                                     Variant="Variant.Filled"
+                                                     Icon="@GetRowIcon(row)">
+                                                @GetRowStatus(row)
+                                            </MudChip>
+
+                                        </MudStack>
+
+                                        <MudStack Spacing="1">
+                                            <MudStack Row="true"
+                                                      AlignItems="AlignItems.Center"
+                                                      Justify="Justify.SpaceBetween">
+                                                <MudText Typo="Typo.body2">
+                                                    Completada: @FormatCompletion(row)
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    @GetAvailableEpisodeCount(row) de @GetExpectedEpisodeCount(row) episodios
+                                                </MudText>
+                                            </MudStack>
+                                            <MudProgressLinear Value="@GetCompletionPercentage(row)"
+                                                               Color="@GetCompletionColor(row)"
+                                                               Rounded="true" />
+                                        </MudStack>
+
+                                        <HealthIndicator Score="@GetHealthScore(row)" />
+
+                                    </MudStack>
+
+                                </MudStack>
+
+                                <MudDivider Class="my-3" />
+
+                                <div class="scan-card-issues">
+
+                                @foreach (var statusIssue in GetStatusIssues(row))
+                                {
+                                    <MudAlert Severity="@GetStatusSeverity(statusIssue.Type)"
+                                              Variant="Variant.Outlined"
+                                              Dense="true"
+                                              Class="mb-2">
+                                        <MudText Typo="Typo.body2">
+                                            <strong>@GetIssueLabel(statusIssue.Type):</strong>
+                                            @statusIssue.Message
+                                        </MudText>
+                                    </MudAlert>
+                                }
+
+                                @if (GetActionableIssues(row).Count == 0 &&
+                                     GetStatusIssues(row).Count == 0)
+                                {
+                                    <MudAlert Severity="Severity.Success"
+                                              Variant="Variant.Outlined">
+                                        No se han detectado incidencias.
+                                    </MudAlert>
+                                }
+                                else if (GetActionableIssues(row).Count > 0)
+                                {
+                                    <MissingEpisodesGroup Issues="GetActionableIssues(row)"
+                                                          MaxGroups="4" />
+                                }
+                                </div>
+
+                            </MudCardContent>
+
+                            <MudCardActions Class="px-4 pb-4">
+
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Visibility"
+                                           Disabled="@string.IsNullOrWhiteSpace(row.JellyfinId)"
+                                           OnClick="@(() => OpenSeries(row.JellyfinId))">
+                                    Ver detalle
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.OpenInNew"
+                                           Disabled="@string.IsNullOrWhiteSpace(row.JellyfinId)"
+                                           OnClick="@(() => OpenInJellyfinAsync(row.JellyfinId))">
+                                    Jellyfin
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Secondary"
+                                           StartIcon="@Icons.Material.Filled.CompareArrows"
+                                           Disabled="@(!row.CanCompare)"
+                                           OnClick="@(() => OpenComparison(row.JellyfinId))">
+                                    Comparar
+                                </MudButton>
+
+                            </MudCardActions>
+
+                        </MudCard>
+
+                    </MudItem>
+                }
+
+            </MudGrid>
+        }
+        else
+        {
+        <MudTable T="ScanSeriesRow"
+                  Items="@FilteredRows"
+                  Dense="false"
+                  Hover="true"
+                  Striped="true"
+                  Elevation="1">
+
+            <HeaderContent>
+
+                <MudTh Style="width:76px;">
+                    Póster
+                </MudTh>
+
+                <MudTh Style="min-width:190px;">
+                    Serie
+                </MudTh>
+
+                <MudTh Style="min-width:460px;">
+                    Resultado del escaneo
+                </MudTh>
+
+                <MudTh Style="width:80px;">
+                    Año
+                </MudTh>
+
+                <MudTh Style="width:105px;">
+                    Temporadas
+                </MudTh>
+
+                <MudTh Style="width:105px;">
+                    Episodios
+                </MudTh>
+
+                <MudTh Style="width:180px;">
+                    Completada
+                </MudTh>
+
+                <MudTh Style="width:170px;">
+                    Salud
+                </MudTh>
+
+                <MudTh Style="width:165px;">
+                    Estado
+                </MudTh>
+
+                <MudTh Style="width:120px;">
+                    Acción
+                </MudTh>
+
+            </HeaderContent>
+
+            <RowTemplate>
+
+                <MudTd DataLabel="Póster">
+
+                    @if (context.Series is not null &&
+                         !string.IsNullOrWhiteSpace(
+                             context.Series.PosterTag))
+                    {
+                        <MudImage Src="@GetPosterUrl(context.Series)"
+                                  Alt="@context.Name"
+                                  Width="54"
+                                  Height="78"
+                                  ObjectFit="ObjectFit.Cover"
+                                  Class="scan-poster" />
+                    }
+                    else
+                    {
+                        <MudPaper Width="54px"
+                                  Height="78px"
+                                  Class="d-flex align-center justify-center">
+
+                            <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported"
+                                     Size="Size.Small" />
+
+                        </MudPaper>
+                    }
+
+                </MudTd>
+
+                <MudTd DataLabel="Serie">
+
+                    <MudText Typo="Typo.subtitle1"
+                             Class="scan-series-title"
+                             @onclick="@(() =>
+                                 OpenSeries(context.JellyfinId))">
+
+                        @context.Name
+
+                    </MudText>
+
+                    @if (GetVisibleIssues(context).Count > 0)
+                    {
+                        <MudText Typo="Typo.caption"
+                                 Color="Color.Error">
+
+                            @GetVisibleIssues(context).Count incidencia(s)
+
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption"
+                                 Color="Color.Success">
+
+                            Sin incidencias
+
+                        </MudText>
+                    }
+
+                </MudTd>
+
+                <MudTd DataLabel="Resultado del escaneo">
+
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Start"
+                              Spacing="1">
+
+                        <MudTooltip Text="Ver serie">
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           Disabled="@string.IsNullOrWhiteSpace(
+                                               context.JellyfinId)"
+                                           OnClick="@(() =>
+                                               OpenSeries(
+                                                   context.JellyfinId))" />
+
+                        </MudTooltip>
+
+                        @if (GetVisibleIssues(context).Count == 0)
+                        {
+                            <MudStack Row="true"
+                                      AlignItems="AlignItems.Center"
+                                      Spacing="1">
+
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                         Color="Color.Success"
+                                         Size="Size.Small" />
+
+                                <MudText Typo="Typo.body2"
+                                         Color="Color.Success">
+
+                                    No se han detectado incidencias.
+
+                                </MudText>
+
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MissingEpisodesGroup Issues="GetVisibleIssues(context)"
+                                                  MaxGroups="5" />
+                        }
+
+                    </MudStack>
+
+                </MudTd>
+
+                <MudTd DataLabel="Año">
+
+                    @(context.Series?.ProductionYear > 0
+                        ? context.Series.ProductionYear.ToString()
+                        : "—")
+
+                </MudTd>
+
+                <MudTd DataLabel="Temporadas">
+
+                    @(context.Series?.SeasonCount.ToString()
+                        ?? "—")
+
+                </MudTd>
+
+                <MudTd DataLabel="Episodios">
+
+                    @(context.Series?.EpisodeCount.ToString()
+                        ?? "—")
+
+                </MudTd>
+
+                <MudTd DataLabel="Completada">
+
+                    <MudStack Spacing="1">
+
+                        <MudStack Row="true"
+                                  AlignItems="AlignItems.Center"
+                                  Justify="Justify.SpaceBetween">
+
+                            <MudText Typo="Typo.body2">
+                                @FormatCompletion(context)
+                            </MudText>
+
+                            <MudText Typo="Typo.caption"
+                                     Color="Color.Secondary">
+                                @GetAvailableEpisodeCount(context) de
+                                @GetExpectedEpisodeCount(context) episodios
+                            </MudText>
+
+                        </MudStack>
+
+                        <MudProgressLinear Value="@GetCompletionPercentage(context)"
+                                           Color="@GetCompletionColor(context)"
+                                           Rounded="true" />
+
+                    </MudStack>
+
+                </MudTd>
+
+                <MudTd DataLabel="Salud">
+
+                    <HealthIndicator Score="@GetHealthScore(context)" />
+
+                </MudTd>
+
+                <MudTd DataLabel="Estado">
+
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@GetRowColor(context)"
+                             Variant="Variant.Filled"
+                             Icon="@GetRowIcon(context)">
+
+                        @GetRowStatus(context)
+
+                    </MudChip>
+
+                </MudTd>
+
+                <MudTd DataLabel="Acción">
+
+                    <MudStack Row="true"
+                              Spacing="1">
+
+                        <MudTooltip Text="Abrir en Jellyfin">
+
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           Disabled="@string.IsNullOrWhiteSpace(
+                                               context.JellyfinId)"
+                                           OnClick="@(() =>
+                                               OpenInJellyfinAsync(
+                                                   context.JellyfinId))" />
+
+                        </MudTooltip>
+
+                        <MudTooltip Text="Comparar con TMDb">
+
+                            <MudIconButton Icon="@Icons.Material.Filled.CompareArrows"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           Disabled="@(!context.CanCompare)"
+                                           OnClick="@(() =>
+                                               OpenComparison(
+                                                   context.JellyfinId))" />
+
+                        </MudTooltip>
+
+                    </MudStack>
+
+                </MudTd>
+
+            </RowTemplate>
+
+            <PagerContent>
+
+                <MudTablePager PageSizeOptions="
+                    new int[] { 10, 25, 50, 100 }" />
+
+            </PagerContent>
+
+        </MudTable>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning"
+                  Variant="Variant.Outlined">
+
+            El escaneo no ha devuelto ninguna serie.
+
+        </MudAlert>
+    }
+}
+
+<style>
+    .scan-native-select-wrapper {
+        position: relative;
+        width: 100%;
+        padding-top: 7px;
+    }
+
+    .scan-native-select-wrapper label {
+        position: absolute;
+        top: 0;
+        left: 12px;
+        z-index: 1;
+        padding: 0 4px;
+        color: var(--mud-palette-text-secondary);
+        background: var(--mud-palette-surface);
+        font-size: .75rem;
+        line-height: 1;
+    }
+
+    .scan-native-select {
+        width: 100%;
+        height: 40px;
+        padding: 0 38px 0 14px;
+        border: 1px solid var(--mud-palette-lines-inputs);
+        border-radius: var(--mud-default-borderradius);
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .scan-native-select:hover {
+        border-color: var(--mud-palette-text-primary);
+    }
+
+    .scan-native-select:focus {
+        border-color: var(--mud-palette-primary);
+        outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 22%, transparent);
+        outline-offset: 0;
+    }
+
+    .scan-poster {
+        border-radius: 6px;
+        display: block;
+        object-fit: cover;
+    }
+
+
+    .scan-series-rating {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 7px;
+        flex-wrap: wrap;
+    }
+
+    .scan-series-rating-stars {
+        display: inline-flex;
+        align-items: center;
+        gap: 1px;
+    }
+
+    .scan-rating-value {
+        font-weight: 800;
+    }
+
+    .scan-series-title {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .scan-series-title:hover {
+        text-decoration: underline;
+    }
+
+    .scan-health-panel {
+        border-radius: 14px;
+    }
+
+    .scan-health-inline {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        flex-wrap: nowrap;
+    }
+
+    .scan-health-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    .scan-health-status {
+        appearance: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+        padding: 6px 8px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: inherit;
+        background: transparent;
+        font: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+    }
+
+    .scan-health-status-active {
+        border-color: var(--mud-palette-primary);
+        background: var(--mud-palette-primary-hover);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    }
+
+    .scan-health-status:focus-visible {
+        outline: 2px solid var(--mud-palette-primary);
+        outline-offset: 2px;
+    }
+
+    .scan-health-status:hover {
+        background: var(--mud-palette-action-default-hover);
+        transform: translateY(-1px);
+    }
+
+    .scan-health-status strong {
+        font-size: 1.05rem;
+    }
+
+    .scan-health-status span {
+        font-size: .82rem;
+        color: var(--mud-palette-text-secondary);
+    }
+
+    .scan-health-progress {
+        flex: 1 1 260px;
+        min-width: 220px;
+    }
+
+    .scan-health-progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+        font-size: .82rem;
+    }
+
+    .scan-health-summary {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 1300px) {
+        .scan-health-inline {
+            flex-wrap: wrap;
+        }
+
+        .scan-health-progress {
+            flex-basis: 100%;
+        }
+    }
+
+    .scan-highlight-card {
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 12px;
+        height: 100%;
+    }
+
+    .scan-stat-card {
+        border-radius: 12px;
+        height: 100%;
+        min-height: 132px;
+    }
+
+    .scan-stat-button {
+        appearance: none;
+        width: 100%;
+        min-height: 132px;
+        padding: 16px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 12px;
+        color: inherit;
+        background: var(--mud-palette-surface);
+        box-shadow: var(--mud-elevation-1);
+        text-align: left;
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease;
+    }
+
+    .scan-stat-button:hover {
+        transform: translateY(-1px);
+        border-color: var(--mud-palette-primary);
+        background: var(--mud-palette-action-default-hover);
+    }
+
+    .scan-stat-button-active {
+        border-color: var(--mud-palette-primary);
+        background: var(--mud-palette-primary-hover);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    }
+
+    .scan-series-card {
+        border-radius: 14px;
+        height: 100%;
+        min-height: 405px;
+        border: 1px solid var(--mud-palette-lines-default);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .scan-series-card .mud-card-content {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .scan-card-main {
+        min-width: 0;
+    }
+
+    .scan-card-issues {
+        flex: 1 1 auto;
+        min-height: 104px;
+    }
+
+    .scan-card-poster {
+        border-radius: 10px;
+        flex-shrink: 0;
+        object-fit: cover;
+    }
+
+    .scan-series-card .mud-card-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .scan-running-panel {
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .scan-working-visual {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 150px;
+        padding: 18px 12px 12px;
+        text-align: center;
+    }
+
+    .scan-rotating-search {
+        display: inline-flex;
+        font-size: 68px !important;
+        filter: drop-shadow(0 0 12px rgba(78, 161, 255, .38));
+        animation: scan-search-horizontal 2.2s ease-in-out infinite alternate;
+        transform-origin: center;
+    }
+
+    .scan-working-phase {
+        margin-top: 14px;
+        font-weight: 700;
+    }
+
+    .scan-working-series {
+        margin-top: 4px;
+        max-width: 760px;
+        overflow-wrap: anywhere;
+    }
+
+    @@keyframes scan-search-horizontal {
+        from {
+            transform: translateX(-85px);
+        }
+
+        to {
+            transform: translateX(85px);
+        }
+    }
+
+    .scan-progress-summary {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 24px;
+        padding: 18px 8px 4px;
+        border-top: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .scan-progress-stat {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .scan-progress-stat div {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .scan-progress-stat strong {
+        font-size: 1.05rem;
+    }
+
+    .scan-progress-stat span,
+    .scan-progress-percent span {
+        color: var(--mud-palette-text-secondary);
+        font-size: .78rem;
+    }
+
+    .scan-progress-percent {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-width: 105px;
+    }
+
+    .scan-progress-percent .mud-progress-circular {
+        grid-area: 1 / 1;
+    }
+
+    .scan-progress-percent strong {
+        grid-area: 1 / 1;
+        font-size: .9rem;
+        z-index: 1;
+    }
+
+    .scan-progress-percent span {
+        margin-top: 7px;
+    }
+
+    @@media (max-width: 700px) {
+        .scan-progress-summary {
+            grid-template-columns: 1fr;
+            gap: 18px;
+        }
+
+        .scan-progress-status {
+            display: none;
+        }
+
+        .scan-rotating-search {
+            font-size: 54px !important;
+            animation-range: normal;
+        }
+
+        @@keyframes scan-search-horizontal {
+            from {
+                transform: translateX(-45px);
+            }
+
+            to {
+                transform: translateX(45px);
+            }
+        }
+    }
+
+</style>
+
+@code
+{
+    private static string FormatVotes(int votes)
+    {
+        return votes.ToString("N0");
+    }
+
+
+    private bool IsScanRunning =>
+        ScannerService.IsRunning;
+
+    private bool _monitoringScan;
+
+    private bool _cancellingScan;
+
+    private bool _loadingLastScan = true;
+
+    private ScanResult? _result;
+
+    private string? _errorMessage;
+
+    private string _search = string.Empty;
+
+    private ScanFilter _filter = ScanFilter.WithIssues;
+
+    private ScanSort _sort = ScanSort.NameAsc;
+
+    private bool _showSpecials = true;
+
+    private bool _cardView = true;
+
+    private List<ScanSeriesRow> _scanRows = [];
+
+    private int AffectedSeriesCount =>
+        _scanRows.Count(row => GetActionableIssues(row).Count > 0);
+
+    private int CompleteSeriesCount =>
+        _scanRows.Count(row => GetActionableIssues(row).Count == 0);
+
+    private int PerfectSeriesCount =>
+        _scanRows.Count(row =>
+            GetActionableIssues(row).Count == 0 &&
+            GetStatusIssues(row).Count == 0);
+
+    private int AiringSeriesCount =>
+        _scanRows.Count(row => GetStatusIssues(row).Any(issue =>
+            issue.Type == ScanIssueType.Airing));
+
+    private int UpcomingSeriesCount =>
+        _scanRows.Count(row => GetStatusIssues(row).Any(issue =>
+            issue.Type == ScanIssueType.Upcoming));
+
+    private int WarningSeriesCount =>
+        _scanRows.Count(row =>
+            GetActionableIssues(row).Count > 0 &&
+            GetHealthScore(row) >= 75 &&
+            GetHealthScore(row) < 100);
+
+    private int CriticalSeriesCount =>
+        _scanRows.Count(row =>
+            GetActionableIssues(row).Count > 0 &&
+            GetHealthScore(row) < 75);
+
+    private int MissingEpisodeIssueCount =>
+        _scanRows.Sum(row => GetVisibleIssues(row).Count(issue =>
+            issue.Type == ScanIssueType.MissingEpisode));
+
+    private int MissingSeasonIssueCount =>
+        _scanRows.Sum(row => GetVisibleIssues(row).Count(issue =>
+            issue.Type == ScanIssueType.MissingSeason));
+
+    private double LibraryHealthPercentage =>
+        _scanRows.Count == 0
+            ? 100d
+            : _scanRows.Average(row => GetHealthScore(row));
+
+    private IEnumerable<ScanSeriesRow> FilteredRows =>
+        ApplySorting(
+            _scanRows
+                .Where(MatchesSearch)
+                .Where(MatchesFilter));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLastScanAsync();
+
+        var activeScan = ScannerService.ActiveScanTask;
+
+        if (activeScan is { IsCompleted: false })
+        {
+            _ = MonitorScanAsync(activeScan);
+        }
+    }
+
+    private async Task LoadLastScanAsync()
+    {
+        _loadingLastScan = true;
+        _errorMessage = null;
+
+        try
+        {
+            _result =
+                await LastScanService.GetLastAsync();
+
+            if (_result is not null)
+            {
+                await BuildScanRowsAsync();
+
+                _filter =
+                    ScanFilter.WithIssues;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"No se pudo cargar el último escaneo: {ex.Message}";
+        }
+        finally
+        {
+            _loadingLastScan = false;
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task StopScanAsync()
+    {
+        if (!ScannerService.IsRunning || _cancellingScan)
+        {
+            return;
+        }
+
+        _cancellingScan = true;
+
+        try
+        {
+            await ScannerService.CancelScanAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            _cancellingScan = false;
+        }
+    }
+
+    private async Task StartScan()
+    {
+        _result = null;
+        _scanRows.Clear();
+        _errorMessage = null;
+        _search = string.Empty;
+        _filter = ScanFilter.WithIssues;
+
+        await InvokeAsync(StateHasChanged);
+
+        var scanTask =
+            ScannerService.ScanAsync(string.Empty);
+
+        await MonitorScanAsync(scanTask);
+    }
+
+    private async Task MonitorScanAsync(
+        Task<ScanResult> scanTask)
+    {
+        if (_monitoringScan)
+        {
+            return;
+        }
+
+        _monitoringScan = true;
+
+        try
+        {
+            while (!scanTask.IsCompleted)
+            {
+                await Task.Delay(100);
+                await InvokeAsync(StateHasChanged);
+            }
+
+            _result = await scanTask;
+
+            await BuildScanRowsAsync();
+
+            _filter = ScanFilter.WithIssues;
+        }
+        catch (OperationCanceledException)
+        {
+            _errorMessage = null;
+            await LoadLastScanAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"El escaneo ha fallado: {ex.Message}";
+
+            await LoadLastScanAsync();
+        }
+        finally
+        {
+            _monitoringScan = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task BuildScanRowsAsync()
+    {
+        if (_result is null)
+        {
+            _scanRows.Clear();
+            return;
+        }
+
+        var library =
+            await LibraryService.GetSeriesAsync();
+
+        var issuesBySeries =
+            _result.Issues
+                .GroupBy(
+                    issue => issue.SeriesName,
+                    StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .OrderBy(issue => issue.SeasonNumber)
+                        .ThenBy(issue => issue.EpisodeNumber)
+                        .ToList(),
+                    StringComparer.OrdinalIgnoreCase);
+
+        _scanRows = library
+            .Select(series =>
+            {
+                issuesBySeries.TryGetValue(
+                    series.Name,
+                    out var seriesIssues);
+
+                return new ScanSeriesRow
+                {
+                    Name =
+                        series.Name,
+
+                    JellyfinId =
+                        series.JellyfinId,
+
+                    Series =
+                        series,
+
+                    Issues =
+                        seriesIssues ?? []
+                };
+            })
+            .OrderBy(row => row.Name)
+            .ToList();
+    }
+
+
+    private IEnumerable<ScanSeriesRow> ApplySorting(IEnumerable<ScanSeriesRow> rows)
+    {
+        return _sort switch
+        {
+            ScanSort.NameDesc => rows.OrderByDescending(r => r.Name),
+            ScanSort.MostIssues => rows.OrderByDescending(r => GetActionableIssues(r).Count).ThenBy(r => r.Name),
+            ScanSort.LeastIssues => rows.OrderBy(r => GetActionableIssues(r).Count).ThenBy(r => r.Name),
+            ScanSort.HighestCompletion => rows.OrderByDescending(GetCompletionPercentage).ThenBy(r=>r.Name),
+            ScanSort.LowestCompletion => rows.OrderBy(GetCompletionPercentage).ThenBy(r=>r.Name),
+            ScanSort.HighestHealth => rows.OrderByDescending(GetHealthScore).ThenBy(r => r.Name),
+            ScanSort.LowestHealth => rows.OrderBy(GetHealthScore).ThenBy(r => r.Name),
+            ScanSort.MostEpisodes => rows.OrderByDescending(GetAvailableEpisodeCount).ThenBy(r=>r.Name),
+            ScanSort.LeastEpisodes => rows.OrderBy(GetAvailableEpisodeCount).ThenBy(r=>r.Name),
+            _ => rows.OrderBy(r => r.Name)
+        };
+    }
+
+    private void ApplyHealthFilter(
+        ScanFilter filter)
+    {
+        _filter = _filter == filter
+            ? ScanFilter.All
+            : filter;
+    }
+
+    private string GetHealthFilterClass(
+        ScanFilter filter,
+        string statusClass)
+    {
+        var activeClass = _filter == filter
+            ? " scan-health-status-active"
+            : string.Empty;
+
+        return $"scan-health-status {statusClass}{activeClass}";
+    }
+
+    private string GetStatFilterClass(
+        ScanFilter filter)
+    {
+        var active = _filter == filter
+            ? " scan-stat-button-active"
+            : string.Empty;
+
+        return $"scan-stat-button{active}";
+    }
+
+    private bool MatchesSearch(
+        ScanSeriesRow row)
+    {
+        if (string.IsNullOrWhiteSpace(_search))
+        {
+            return true;
+        }
+
+        return row.Name.Contains(
+                   _search,
+                   StringComparison.OrdinalIgnoreCase)
+               ||
+               GetVisibleIssues(row).Any(issue =>
+                   issue.Message.Contains(
+                       _search,
+                       StringComparison.OrdinalIgnoreCase)
+                   ||
+                   GetIssueDescription(issue).Contains(
+                       _search,
+                       StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool MatchesFilter(
+        ScanSeriesRow row)
+    {
+        return _filter switch
+        {
+            ScanFilter.All =>
+                true,
+
+            ScanFilter.WithIssues =>
+                GetActionableIssues(row).Count > 0,
+
+            ScanFilter.Complete =>
+                GetActionableIssues(row).Count == 0,
+
+            ScanFilter.MissingEpisodes =>
+                GetVisibleIssues(row).Any(issue =>
+                    issue.Type ==
+                    ScanIssueType.MissingEpisode),
+
+            ScanFilter.MissingSeasons =>
+                GetActionableIssues(row).Any(issue =>
+                    issue.Type ==
+                    ScanIssueType.MissingSeason),
+
+            ScanFilter.Airing =>
+                GetStatusIssues(row).Any(issue =>
+                    issue.Type == ScanIssueType.Airing),
+
+            ScanFilter.Upcoming =>
+                GetStatusIssues(row).Any(issue =>
+                    issue.Type == ScanIssueType.Upcoming),
+
+            ScanFilter.Perfect =>
+                GetActionableIssues(row).Count == 0 &&
+                GetStatusIssues(row).Count == 0,
+
+            ScanFilter.HealthWarnings =>
+                GetActionableIssues(row).Count > 0 &&
+                GetHealthScore(row) >= 75 &&
+                GetHealthScore(row) < 100,
+
+            ScanFilter.Critical =>
+                GetActionableIssues(row).Count > 0 &&
+                GetHealthScore(row) < 75,
+
+            ScanFilter.Metadata =>
+                GetVisibleIssues(row).Any(issue =>
+                    issue.Type is
+                        ScanIssueType.MissingPoster or
+                        ScanIssueType.MissingOverview or
+                        ScanIssueType.MissingTmdb or
+                        ScanIssueType.MetadataMismatch),
+
+            ScanFilter.Duplicates =>
+                GetVisibleIssues(row).Any(issue =>
+                    issue.Type ==
+                    ScanIssueType.DuplicateEpisode),
+
+            _ =>
+                true
+        };
+    }
+
+    private List<ScanIssue> GetVisibleIssues(
+        ScanSeriesRow row)
+    {
+        return _showSpecials
+            ? row.Issues
+            : row.Issues
+                .Where(issue => !IsSpecialIssue(issue))
+                .ToList();
+    }
+
+    private List<ScanIssue> GetActionableIssues(
+        ScanSeriesRow row)
+    {
+        return GetVisibleIssues(row)
+            .Where(issue => !IsStatusIssue(issue))
+            .ToList();
+    }
+
+    private List<ScanIssue> GetStatusIssues(
+        ScanSeriesRow row)
+    {
+        return GetVisibleIssues(row)
+            .Where(IsStatusIssue)
+            .ToList();
+    }
+
+    private static bool IsStatusIssue(
+        ScanIssue issue)
+    {
+        return issue.Type is
+            ScanIssueType.Airing or
+            ScanIssueType.Upcoming;
+    }
+
+    private static bool IsSpecialIssue(
+        ScanIssue issue)
+    {
+        return issue.SeasonNumber == 0;
+    }
+
+    private static string GetIssueDescription(
+        ScanIssue issue)
+    {
+        if (issue.Type == ScanIssueType.MissingEpisode &&
+            issue.SeasonNumber.HasValue &&
+            issue.EpisodeNumber.HasValue)
+        {
+            return
+                $"Falta T{issue.SeasonNumber.Value:00}" +
+                $"E{issue.EpisodeNumber.Value:00}.";
+        }
+
+        if (issue.Type == ScanIssueType.MissingSeason &&
+            issue.SeasonNumber.HasValue)
+        {
+            return
+                $"Falta la temporada " +
+                $"{issue.SeasonNumber.Value}.";
+        }
+
+        return issue.Message;
+    }
+
+    private static string GetPosterUrl(
+        LibrarySeriesDto item)
+    {
+        return
+            $"/api/jellyfin/image/" +
+            $"{Uri.EscapeDataString(item.JellyfinId)}" +
+            $"?tag={Uri.EscapeDataString(item.PosterTag!)}";
+    }
+
+    private static string FormatDuration(
+        TimeSpan duration)
+    {
+        return duration.TotalMinutes >= 1
+            ? $"{(int)duration.TotalMinutes} min " +
+              $"{duration.Seconds} s"
+            : $"{duration.TotalSeconds:0.0} s";
+    }
+
+
+    private static int GetAvailableEpisodeCount(
+        ScanSeriesRow row)
+    {
+        return row.Series?.EpisodeCount ?? 0;
+    }
+
+    private int GetMissingEpisodeCount(
+        ScanSeriesRow row)
+    {
+        return GetVisibleIssues(row).Count(issue =>
+            issue.Type == ScanIssueType.MissingEpisode);
+    }
+
+    private int GetExpectedEpisodeCount(
+        ScanSeriesRow row)
+    {
+        return GetAvailableEpisodeCount(row) +
+               GetMissingEpisodeCount(row);
+    }
+
+    private double GetCompletionPercentage(
+        ScanSeriesRow row)
+    {
+        var expected = GetExpectedEpisodeCount(row);
+
+        if (expected <= 0)
+        {
+            return GetActionableIssues(row).Count == 0 ? 100d : 0d;
+        }
+
+        return Math.Clamp(
+            GetAvailableEpisodeCount(row) * 100d / expected,
+            0d,
+            100d);
+    }
+
+    private string FormatCompletion(
+        ScanSeriesRow row)
+    {
+        return $"{GetCompletionPercentage(row):0.#} %";
+    }
+
+    private int GetHealthScore(
+        ScanSeriesRow row)
+    {
+        var penalty = 0;
+
+        foreach (var issue in GetActionableIssues(row))
+        {
+            penalty += issue.Type switch
+            {
+                ScanIssueType.MissingEpisode => 1,
+                ScanIssueType.MissingSeason => 15,
+                ScanIssueType.DuplicateEpisode => 2,
+                ScanIssueType.MissingPoster => 5,
+                ScanIssueType.MissingOverview => 5,
+                ScanIssueType.MissingTmdb => 10,
+                ScanIssueType.MetadataMismatch => 5,
+                _ => 0
+            };
+        }
+
+        return Math.Clamp(100 - penalty, 0, 100);
+    }
+
+    private string GetCompletionBorderClass(
+        ScanSeriesRow row)
+    {
+        var percentage = GetCompletionPercentage(row);
+
+        if (percentage >= 100d)
+        {
+            return "scan-series-card-complete";
+        }
+
+        if (percentage >= 80d)
+        {
+            return "scan-series-card-warning";
+        }
+
+        return "scan-series-card-critical";
+    }
+
+    private Color GetCompletionColor(
+        ScanSeriesRow row)
+    {
+        var percentage = GetCompletionPercentage(row);
+
+        if (percentage >= 100d)
+        {
+            return Color.Success;
+        }
+
+        if (percentage >= 90d)
+        {
+            return Color.Warning;
+        }
+
+        return Color.Error;
+    }
+
+    private string FormatLibraryHealth()
+    {
+        return $"{LibraryHealthPercentage:0.#} %";
+    }
+
+    private string FormatCompleteSeriesPercentage()
+    {
+        if (_scanRows.Count == 0)
+        {
+            return "100 %";
+        }
+
+        return $"{CompleteSeriesCount * 100d / _scanRows.Count:0.#} %";
+    }
+
+    private string GetLibraryHealthCssColor()
+    {
+        return GetLibraryHealthColor() switch
+        {
+            Color.Success => "success",
+            Color.Warning => "warning",
+            Color.Error => "error",
+            _ => "primary"
+        };
+    }
+
+    private Color GetLibraryHealthColor()
+    {
+        if (LibraryHealthPercentage >= 98d)
+        {
+            return Color.Success;
+        }
+
+        if (LibraryHealthPercentage >= 95d)
+        {
+            return Color.Info;
+        }
+
+        if (LibraryHealthPercentage >= 90d)
+        {
+            return Color.Warning;
+        }
+
+        return Color.Error;
+    }
+
+    private string GetLibraryHealthLabel()
+    {
+        if (LibraryHealthPercentage >= 98d)
+        {
+            return "Excelente";
+        }
+
+        if (LibraryHealthPercentage >= 95d)
+        {
+            return "Muy buena";
+        }
+
+        if (LibraryHealthPercentage >= 90d)
+        {
+            return "Buena";
+        }
+
+        if (LibraryHealthPercentage >= 75d)
+        {
+            return "Mejorable";
+        }
+
+        return "Crítica";
+    }
+
+    private string GetLibraryHealthIcon()
+    {
+        if (LibraryHealthPercentage >= 98d)
+        {
+            return Icons.Material.Filled.Verified;
+        }
+
+        if (LibraryHealthPercentage >= 90d)
+        {
+            return Icons.Material.Filled.ThumbUp;
+        }
+
+        return Icons.Material.Filled.Warning;
+    }
+
+    private string GetLibrarySummary()
+    {
+        if (_scanRows.Count == 0)
+        {
+            return "No hay series disponibles para calcular el estado de la biblioteca.";
+        }
+
+        if (AffectedSeriesCount == 0)
+        {
+            return $"Las {_scanRows.Count} series analizadas están al día. " +
+                   $"{AiringSeriesCount} en emisión y " +
+                   $"{UpcomingSeriesCount} con próximos estrenos.";
+        }
+
+        return $"{CompleteSeriesCount} de {_scanRows.Count} series están al día. " +
+               $"{AiringSeriesCount} en emisión, " +
+               $"{UpcomingSeriesCount} próximamente, " +
+               $"{AffectedSeriesCount} con incidencias, " +
+               $"{MissingEpisodeIssueCount} episodio(s) faltante(s) y " +
+               $"{MissingSeasonIssueCount} temporada(s) faltante(s).";
+    }
+
+    private Color GetRowColor(
+        ScanSeriesRow row)
+    {
+        var actionableIssues = GetActionableIssues(row);
+        var statusIssues = GetStatusIssues(row);
+
+        if (actionableIssues.Any(issue =>
+            issue.Type is
+                ScanIssueType.MissingEpisode or
+                ScanIssueType.MissingSeason or
+                ScanIssueType.DuplicateEpisode))
+        {
+            return Color.Error;
+        }
+
+        if (actionableIssues.Count > 0)
+        {
+            return Color.Warning;
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Airing))
+        {
+            return Color.Info;
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Upcoming))
+        {
+            return Color.Secondary;
+        }
+
+        return Color.Success;
+    }
+
+    private string GetRowIcon(
+        ScanSeriesRow row)
+    {
+        var actionableIssues = GetActionableIssues(row);
+        var statusIssues = GetStatusIssues(row);
+
+        if (actionableIssues.Any(issue =>
+            issue.Type is
+                ScanIssueType.MissingEpisode or
+                ScanIssueType.MissingSeason or
+                ScanIssueType.DuplicateEpisode))
+        {
+            return Icons.Material.Filled.Error;
+        }
+
+        if (actionableIssues.Count > 0)
+        {
+            return Icons.Material.Filled.Warning;
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Airing))
+        {
+            return Icons.Material.Filled.LiveTv;
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Upcoming))
+        {
+            return Icons.Material.Filled.Schedule;
+        }
+
+        return Icons.Material.Filled.CheckCircle;
+    }
+
+    private string GetRowStatus(
+        ScanSeriesRow row)
+    {
+        var actionableIssues = GetActionableIssues(row);
+        var statusIssues = GetStatusIssues(row);
+
+        var missingEpisodes =
+            actionableIssues.Count(issue =>
+                issue.Type ==
+                ScanIssueType.MissingEpisode);
+
+        var missingSeasons =
+            actionableIssues.Count(issue =>
+                issue.Type ==
+                ScanIssueType.MissingSeason);
+
+        if (missingEpisodes > 0 &&
+            missingSeasons > 0)
+        {
+            return
+                $"{missingEpisodes} episodio(s) y " +
+                $"{missingSeasons} temporada(s)";
+        }
+
+        if (missingEpisodes > 0)
+        {
+            return
+                $"{missingEpisodes} episodio(s) faltante(s)";
+        }
+
+        if (missingSeasons > 0)
+        {
+            return
+                $"{missingSeasons} temporada(s) faltante(s)";
+        }
+
+        if (actionableIssues.Count > 0)
+        {
+            return
+                $"{actionableIssues.Count} incidencia(s)";
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Airing))
+        {
+            return "En emisión";
+        }
+
+        if (statusIssues.Any(issue =>
+            issue.Type == ScanIssueType.Upcoming))
+        {
+            return "Próximamente";
+        }
+
+        return "Completa";
+    }
+
+    private static Severity GetStatusSeverity(
+        ScanIssueType type)
+    {
+        return type switch
+        {
+            ScanIssueType.Airing => Severity.Info,
+            ScanIssueType.Upcoming => Severity.Normal,
+            _ => Severity.Normal
+        };
+    }
+
+    private static Color GetIssueColor(
+        ScanIssueType type)
+    {
+        return type switch
+        {
+            ScanIssueType.MissingEpisode =>
+                Color.Error,
+
+            ScanIssueType.MissingSeason =>
+                Color.Error,
+
+            ScanIssueType.DuplicateEpisode =>
+                Color.Error,
+
+            ScanIssueType.MissingPoster =>
+                Color.Warning,
+
+            ScanIssueType.MissingOverview =>
+                Color.Info,
+
+            ScanIssueType.MissingTmdb =>
+                Color.Warning,
+
+            ScanIssueType.MetadataMismatch =>
+                Color.Warning,
+
+            ScanIssueType.Airing =>
+                Color.Info,
+
+            ScanIssueType.Upcoming =>
+                Color.Secondary,
+
+            _ =>
+                Color.Default
+        };
+    }
+
+    private static string GetIssueLabel(
+        ScanIssueType type)
+    {
+        return type switch
+        {
+            ScanIssueType.MissingPoster =>
+                "Sin póster",
+
+            ScanIssueType.MissingOverview =>
+                "Sin sinopsis",
+
+            ScanIssueType.MissingTmdb =>
+                "Sin TMDb",
+
+            ScanIssueType.MissingSeason =>
+                "Temporada faltante",
+
+            ScanIssueType.DuplicateEpisode =>
+                "Duplicado",
+
+            ScanIssueType.MissingEpisode =>
+                "Episodio faltante",
+
+            ScanIssueType.MetadataMismatch =>
+                "Metadatos incorrectos",
+
+            ScanIssueType.Airing =>
+                "En emisión",
+
+            ScanIssueType.Upcoming =>
+                "Próximamente",
+
+            _ =>
+                type.ToString()
+        };
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        try
+        {
+            var exportRows = BuildExportRows();
+
+            if (exportRows.Length == 0)
+            {
+                _errorMessage =
+                    "No hay resultados para exportar.";
+                return;
+            }
+
+            var csv = new StringBuilder();
+
+            csv.AppendLine(
+                "Serie;Año;JellyfinId;Temporadas;" +
+                "Episodios disponibles;Episodios esperados;" +
+                "Completada;Tipo de incidencia;Temporada;" +
+                "Episodio;Descripción;Estado");
+
+            foreach (var exportRow in exportRows)
+            {
+                var row = exportRow.Row;
+                var issue = exportRow.Issue;
+
+                csv.Append(CsvEscape(row.Name));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    row.Series?.ProductionYear > 0
+                        ? row.Series.ProductionYear.ToString()
+                        : string.Empty));
+                csv.Append(';');
+                csv.Append(CsvEscape(row.JellyfinId));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    row.Series?.SeasonCount.ToString()
+                    ?? string.Empty));
+                csv.Append(';');
+                csv.Append(GetAvailableEpisodeCount(row));
+                csv.Append(';');
+                csv.Append(GetExpectedEpisodeCount(row));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    GetCompletionPercentage(row)
+                        .ToString(
+                            "0.##",
+                            System.Globalization.CultureInfo.InvariantCulture)));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    issue is null
+                        ? string.Empty
+                        : GetIssueLabel(issue.Type)));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    issue?.SeasonNumber?.ToString()
+                    ?? string.Empty));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    issue?.EpisodeNumber?.ToString()
+                    ?? string.Empty));
+                csv.Append(';');
+                csv.Append(CsvEscape(
+                    issue is null
+                        ? "Sin incidencias"
+                        : GetIssueDescription(issue)));
+                csv.Append(';');
+                csv.Append(CsvEscape(GetRowStatus(row)));
+                csv.AppendLine();
+            }
+
+            var utf8Preamble = Encoding.UTF8.GetPreamble();
+            var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
+            var bytes = new byte[utf8Preamble.Length + csvBytes.Length];
+
+            Buffer.BlockCopy(
+                utf8Preamble,
+                0,
+                bytes,
+                0,
+                utf8Preamble.Length);
+
+            Buffer.BlockCopy(
+                csvBytes,
+                0,
+                bytes,
+                utf8Preamble.Length,
+                csvBytes.Length);
+
+            await DownloadFileAsync(
+                $"jellyinspector-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+                "text/csv;charset=utf-8",
+                bytes);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"No se pudo exportar el CSV: {ex.Message}";
+        }
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        try
+        {
+            var exportRows = BuildExportRows();
+
+            if (exportRows.Length == 0)
+            {
+                _errorMessage =
+                    "No hay resultados para exportar.";
+                return;
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Incidencias");
+
+            var headers = new[]
+            {
+                "Serie",
+                "Año",
+                "Jellyfin ID",
+                "Temporadas",
+                "Episodios disponibles",
+                "Episodios esperados",
+                "Completada (%)",
+                "Tipo de incidencia",
+                "Temporada",
+                "Episodio",
+                "Descripción",
+                "Estado"
+            };
+
+            for (var column = 0;
+                 column < headers.Length;
+                 column++)
+            {
+                worksheet.Cell(1, column + 1).Value =
+                    headers[column];
+            }
+
+            var excelRow = 2;
+
+            foreach (var exportRow in exportRows)
+            {
+                var row = exportRow.Row;
+                var issue = exportRow.Issue;
+
+                worksheet.Cell(excelRow, 1).Value =
+                    row.Name;
+
+                if (row.Series?.ProductionYear > 0)
+                {
+                    worksheet.Cell(excelRow, 2).Value =
+                        row.Series.ProductionYear;
+                }
+
+                worksheet.Cell(excelRow, 3).Value =
+                    row.JellyfinId;
+
+                if (row.Series is not null)
+                {
+                    worksheet.Cell(excelRow, 4).Value =
+                        row.Series.SeasonCount;
+                }
+
+                worksheet.Cell(excelRow, 5).Value =
+                    GetAvailableEpisodeCount(row);
+
+                worksheet.Cell(excelRow, 6).Value =
+                    GetExpectedEpisodeCount(row);
+
+                worksheet.Cell(excelRow, 7).Value =
+                    GetCompletionPercentage(row);
+
+                worksheet.Cell(excelRow, 8).Value =
+                    issue is null
+                        ? string.Empty
+                        : GetIssueLabel(issue.Type);
+
+                if (issue?.SeasonNumber is int seasonNumber)
+                {
+                    worksheet.Cell(excelRow, 9).Value =
+                        seasonNumber;
+                }
+
+                if (issue?.EpisodeNumber is int episodeNumber)
+                {
+                    worksheet.Cell(excelRow, 10).Value =
+                        episodeNumber;
+                }
+
+                worksheet.Cell(excelRow, 11).Value =
+                    issue is null
+                        ? "Sin incidencias"
+                        : GetIssueDescription(issue);
+
+                worksheet.Cell(excelRow, 12).Value =
+                    GetRowStatus(row);
+
+                excelRow++;
+            }
+
+            var headerRange =
+                worksheet.Range(
+                    1,
+                    1,
+                    1,
+                    headers.Length);
+
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor =
+                XLColor.LightGray;
+
+            worksheet.Column(7)
+                .Style.NumberFormat.Format =
+                "0.00";
+
+            worksheet.SheetView.FreezeRows(1);
+            worksheet.RangeUsed()?.SetAutoFilter();
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await DownloadFileAsync(
+                $"jellyinspector-{DateTime.Now:yyyyMMdd-HHmmss}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                stream.ToArray());
+        }
+        catch (Exception ex)
+        {
+            _errorMessage =
+                $"No se pudo exportar el Excel: {ex.Message}";
+        }
+    }
+
+    private ExportRow[] BuildExportRows()
+    {
+        var exportRows = new List<ExportRow>();
+
+        foreach (var row in FilteredRows)
+        {
+            var visibleIssues = GetVisibleIssues(row);
+
+            if (visibleIssues.Count == 0)
+            {
+                exportRows.Add(new ExportRow
+                {
+                    Row = row
+                });
+
+                continue;
+            }
+
+            foreach (var issue in visibleIssues)
+            {
+                exportRows.Add(new ExportRow
+                {
+                    Row = row,
+                    Issue = issue
+                });
+            }
+        }
+
+        return exportRows.ToArray();
+    }
+
+    private async Task DownloadFileAsync(
+        string fileName,
+        string contentType,
+        byte[] bytes)
+    {
+        var base64 =
+            Convert.ToBase64String(bytes);
+
+        var script =
+            "(() => {" +
+            "const link = document.createElement('a');" +
+            $"link.href = 'data:{contentType};base64,{base64}';" +
+            $"link.download = '{fileName}';" +
+            "document.body.appendChild(link);" +
+            "link.click();" +
+            "link.remove();" +
+            "})();";
+
+        await JSRuntime.InvokeVoidAsync(
+            "eval",
+            script);
+    }
+
+    private static string CsvEscape(
+        string? value)
+    {
+        var normalized =
+            (value ?? string.Empty)
+                .Replace(
+                    "\"",
+                    "\"\"");
+
+        return $"\"{normalized}\"";
+    }
+
+    private void OpenSeries(
+        string jellyfinId)
+    {
+        if (string.IsNullOrWhiteSpace(jellyfinId))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/series/" +
+            $"{Uri.EscapeDataString(jellyfinId)}");
+    }
+
+    private async Task OpenInJellyfinAsync(
+        string jellyfinId)
+    {
+        if (string.IsNullOrWhiteSpace(jellyfinId))
+        {
+            return;
+        }
+
+        var jellyfinUrl =
+            await JellyfinService.GetItemWebUrlAsync(
+                jellyfinId);
+
+        if (string.IsNullOrWhiteSpace(jellyfinUrl))
+        {
+            _errorMessage =
+                "No se ha configurado la URL del servidor Jellyfin.";
+
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync(
+            "open",
+            jellyfinUrl,
+            "_blank");
+    }
+
+    private void OpenComparison(
+        string jellyfinId)
+    {
+        if (string.IsNullOrWhiteSpace(jellyfinId))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/compare/" +
+            $"{Uri.EscapeDataString(jellyfinId)}");
+    }
+
+    private sealed class ExportRow
+    {
+        public required ScanSeriesRow Row { get; init; }
+
+        public ScanIssue? Issue { get; init; }
+    }
+
+    private sealed class ScanSeriesRow
+    {
+        public string Name { get; init; } =
+            string.Empty;
+
+        public string JellyfinId { get; init; } =
+            string.Empty;
+
+        public LibrarySeriesDto? Series { get; init; }
+
+        public List<ScanIssue> Issues { get; init; } = [];
+
+        public bool CanCompare =>
+            Series?.HasTmdb == true &&
+            !string.IsNullOrWhiteSpace(JellyfinId);
+    }
+
+
+    private enum ScanSort
+    {
+        NameAsc,
+        NameDesc,
+        MostIssues,
+        LeastIssues,
+        HighestCompletion,
+        LowestCompletion,
+        HighestHealth,
+        LowestHealth,
+        MostEpisodes,
+        LeastEpisodes
+    }
+
+    private enum ScanFilter
+    {
+        All,
+        WithIssues,
+        Complete,
+        Perfect,
+        HealthWarnings,
+        Critical,
+        MissingEpisodes,
+        MissingSeasons,
+        Airing,
+        Upcoming,
+        Metadata,
+        Duplicates
+    }
+}

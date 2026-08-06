@@ -1,0 +1,36 @@
+﻿@media (max-width: 1250px) {
+    .ji-grid-6 {
+        grid-template-columns: repeat(3, minmax(170px, 1fr));
+    }
+
+    .ji-grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .ji-content {
+        width: min(100% - 26px, 1500px);
+    }
+
+    .ji-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ji-grid-2,
+    .ji-grid-3,
+    .ji-grid-4 {
+        grid-template-columns: 1fr;
+    }
+
+    .ji-grid-6 {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .ji-grid-6 {
+        grid-template-columns: 1fr;
+    }
+}

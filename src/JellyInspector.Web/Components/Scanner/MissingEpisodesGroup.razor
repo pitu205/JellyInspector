@@ -1,0 +1,273 @@
+@using JellyInspector.Application.Scanning
+
+@if (DisplayGroups.Count > 0)
+{
+    <MudStack Spacing="1">
+        @foreach (var group in DisplayGroups)
+        {
+            @if (group.IsMissingEpisodeGroup)
+            {
+                <MudPaper Class="pa-2 missing-episode-group"
+                          Elevation="0"
+                          Outlined="true">
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.FolderOpen"
+                                 Color="Color.Error"
+                                 Size="Size.Small" />
+
+                        <MudText Typo="Typo.body2"
+                                 Class="font-weight-medium">
+                            @GetSeasonLabel(group.SeasonNumber)
+                        </MudText>
+
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="Color.Error"
+                                 Variant="Variant.Outlined"
+                                 Class="issue-chip-uniform">
+                            @group.IssueCount episodio(s)
+                        </MudChip>
+                    </MudStack>
+
+                    <MudText Typo="Typo.caption"
+                             Color="Color.Secondary"
+                             Class="mt-1">
+                        Episodios: @FormatEpisodeRanges(group.EpisodeNumbers)
+                    </MudText>
+                </MudPaper>
+            }
+            else if (group.Issue is not null)
+            {
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Spacing="2">
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@GetIssueColor(group.Issue.Type)"
+                             Variant="Variant.Outlined"
+                             Class="issue-chip-uniform">
+                        @GetIssueLabel(group.Issue.Type)
+                    </MudChip>
+
+                    <MudText Typo="Typo.body2">
+                        @GetIssueDescription(group.Issue)
+                    </MudText>
+                </MudStack>
+            }
+        }
+
+        @if (HiddenIssueCount > 0)
+        {
+            <MudText Typo="Typo.caption"
+                     Color="Color.Secondary">
+                Y @HiddenIssueCount incidencia(s) más
+            </MudText>
+        }
+    </MudStack>
+}
+
+<style>
+    .missing-episode-group {
+        border-radius: 6px;
+    }
+
+    .issue-chip-uniform {
+        min-height: 26px;
+        display: inline-flex;
+        align-items: center;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<ScanIssue> Issues { get; set; } = [];
+
+    [Parameter]
+    public int MaxGroups { get; set; } = 5;
+
+    private IReadOnlyList<IssueDisplayGroup> AllGroups =>
+        BuildGroups();
+
+    private IReadOnlyList<IssueDisplayGroup> DisplayGroups =>
+        AllGroups
+            .Take(Math.Max(1, MaxGroups))
+            .ToList();
+
+    private int HiddenIssueCount =>
+        Math.Max(
+            0,
+            Issues.Count -
+            DisplayGroups.Sum(group => group.IssueCount));
+
+    private IReadOnlyList<IssueDisplayGroup> BuildGroups()
+    {
+        var groups = new List<IssueDisplayGroup>();
+
+        var missingEpisodeGroups = Issues
+            .Where(issue =>
+                issue.Type == ScanIssueType.MissingEpisode &&
+                issue.EpisodeNumber.HasValue)
+            .GroupBy(issue => issue.SeasonNumber ?? -1)
+            .OrderBy(group => group.Key);
+
+        foreach (var seasonGroup in missingEpisodeGroups)
+        {
+            var episodeNumbers = seasonGroup
+                .Select(issue => issue.EpisodeNumber!.Value)
+                .Distinct()
+                .OrderBy(number => number)
+                .ToArray();
+
+            groups.Add(new IssueDisplayGroup
+            {
+                SeasonNumber = seasonGroup.Key,
+                EpisodeNumbers = episodeNumbers,
+                IssueCount = seasonGroup.Count(),
+                IsMissingEpisodeGroup = true
+            });
+        }
+
+        groups.AddRange(
+            Issues
+                .Where(issue =>
+                    issue.Type != ScanIssueType.MissingEpisode ||
+                    !issue.EpisodeNumber.HasValue)
+                .OrderBy(issue => issue.SeasonNumber)
+                .ThenBy(issue => issue.EpisodeNumber)
+                .Select(issue => new IssueDisplayGroup
+                {
+                    Issue = issue,
+                    IssueCount = 1
+                }));
+
+        return groups;
+    }
+
+    private static string GetSeasonLabel(int seasonNumber)
+    {
+        if (seasonNumber == 0)
+        {
+            return "Especiales";
+        }
+
+        if (seasonNumber < 0)
+        {
+            return "Temporada desconocida";
+        }
+
+        return $"Temporada {seasonNumber}";
+    }
+
+    private static string FormatEpisodeRanges(
+        IReadOnlyList<int> episodeNumbers)
+    {
+        if (episodeNumbers.Count == 0)
+        {
+            return "—";
+        }
+
+        var ranges = new List<string>();
+        var start = episodeNumbers[0];
+        var previous = start;
+
+        for (var index = 1;
+             index < episodeNumbers.Count;
+             index++)
+        {
+            var current = episodeNumbers[index];
+
+            if (current == previous + 1)
+            {
+                previous = current;
+                continue;
+            }
+
+            ranges.Add(FormatRange(start, previous));
+            start = current;
+            previous = current;
+        }
+
+        ranges.Add(FormatRange(start, previous));
+
+        return string.Join(", ", ranges);
+    }
+
+    private static string FormatRange(
+        int start,
+        int end)
+    {
+        return start == end
+            ? start.ToString()
+            : $"{start}-{end}";
+    }
+
+    private static string GetIssueDescription(
+        ScanIssue issue)
+    {
+        if (issue.Type == ScanIssueType.MissingEpisode &&
+            issue.SeasonNumber.HasValue &&
+            issue.EpisodeNumber.HasValue)
+        {
+            return
+                $"Falta T{issue.SeasonNumber.Value:00}" +
+                $"E{issue.EpisodeNumber.Value:00}.";
+        }
+
+        if (issue.Type == ScanIssueType.MissingSeason &&
+            issue.SeasonNumber.HasValue)
+        {
+            return
+                $"Falta la temporada " +
+                $"{issue.SeasonNumber.Value}.";
+        }
+
+        return issue.Message;
+    }
+
+    private static Color GetIssueColor(
+        ScanIssueType type)
+    {
+        return type switch
+        {
+            ScanIssueType.MissingEpisode => Color.Error,
+            ScanIssueType.MissingSeason => Color.Error,
+            ScanIssueType.DuplicateEpisode => Color.Error,
+            ScanIssueType.MissingPoster => Color.Warning,
+            ScanIssueType.MissingOverview => Color.Info,
+            ScanIssueType.MissingTmdb => Color.Warning,
+            ScanIssueType.MetadataMismatch => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetIssueLabel(
+        ScanIssueType type)
+    {
+        return type switch
+        {
+            ScanIssueType.MissingPoster => "Sin póster",
+            ScanIssueType.MissingOverview => "Sin sinopsis",
+            ScanIssueType.MissingTmdb => "Sin TMDb",
+            ScanIssueType.MissingSeason => "Temporada faltante",
+            ScanIssueType.DuplicateEpisode => "Duplicado",
+            ScanIssueType.MissingEpisode => "Episodio faltante",
+            ScanIssueType.MetadataMismatch => "Metadatos incorrectos",
+            _ => type.ToString()
+        };
+    }
+
+    private sealed class IssueDisplayGroup
+    {
+        public bool IsMissingEpisodeGroup { get; init; }
+
+        public int SeasonNumber { get; init; }
+
+        public IReadOnlyList<int> EpisodeNumbers { get; init; } = [];
+
+        public ScanIssue? Issue { get; init; }
+
+        public int IssueCount { get; init; }
+    }
+}

@@ -1,0 +1,225 @@
+﻿@inherits Microsoft.AspNetCore.Components.LayoutComponentBase
+@using JellyInspector.Web.Themes
+@using MudBlazor
+@using Microsoft.JSInterop
+
+@inject IJSRuntime JSRuntime
+
+<MudThemeProvider Theme="@_theme"
+                  @bind-IsDarkMode="_isDarkMode" />
+
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+
+    <MudAppBar Elevation="1">
+
+        <MudText Typo="Typo.h6">
+            JellyInspector
+        </MudText>
+
+        <MudSpacer />
+
+        <MudTooltip Text="@(_isDarkMode
+            ? "Activar tema claro"
+            : "Activar tema oscuro")">
+
+            <MudIconButton Icon="@(_isDarkMode
+                                    ? Icons.Material.Filled.LightMode
+                                    : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit"
+                           OnClick="ToggleThemeAsync" />
+
+        </MudTooltip>
+
+        <MudTooltip Text="Configuración">
+
+            <MudIconButton Icon="@Icons.Material.Filled.Settings"
+                           Color="Color.Inherit"
+                           Href="/settings" />
+
+        </MudTooltip>
+
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerExpanded"
+               Variant="DrawerVariant.Mini"
+               Width="220px"
+               MiniWidth="76px"
+               Elevation="1"
+               Class="drawer">
+
+        <div class="drawer-shell">
+
+            <div class="drawer-header pa-3">
+
+                @if (_drawerExpanded)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.MovieFilter"
+                             Color="Color.Primary"
+                             Size="Size.Large"
+                             Class="drawer-logo" />
+
+                    <div class="drawer-title-block">
+
+                        <MudText Typo="Typo.h6">
+                            JellyInspector
+                        </MudText>
+
+                        <MudText Typo="Typo.caption"
+                                 Color="Color.Secondary">
+                            Library inspection
+                        </MudText>
+
+                    </div>
+
+                    <MudSpacer />
+                }
+
+                <button type="button"
+                        class="@(_drawerExpanded
+                            ? "sidebar-toggle-button sidebar-toggle-expanded"
+                            : "sidebar-toggle-button sidebar-toggle-compact")"
+                        title="@(_drawerExpanded
+                            ? "Contraer menú lateral"
+                            : "Expandir menú lateral")"
+                        aria-label="@(_drawerExpanded
+                            ? "Contraer menú lateral"
+                            : "Expandir menú lateral")"
+                        @onclick="ToggleDrawer">
+
+                    <span class="sidebar-toggle-icon"
+                          aria-hidden="true">
+                        <span class="sidebar-toggle-panel"></span>
+                    </span>
+
+                </button>
+
+            </div>
+
+            <MudDivider />
+
+            <div class="drawer-menu-host">
+                <NavMenu IsCompact="@(!_drawerExpanded)" />
+            </div>
+
+        </div>
+
+    </MudDrawer>
+
+    <MudMainContent>
+
+        <MudContainer MaxWidth="MaxWidth.False"
+                      Class="pa-6">
+
+            @Body
+
+        </MudContainer>
+
+    </MudMainContent>
+
+</MudLayout>
+
+@code
+{
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#185ABD",
+            Secondary = "#00C853",
+            Background = "#F5F6F8",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#185ABD",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#3F3F46",
+            TextPrimary = "#333333",
+            TextSecondary = "#00B84A",
+            LinesDefault = "#E2E5EA"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#4EA1FF",
+            Secondary = "#35D07F",
+            Background = "#0D1524",
+            Surface = "#162238",
+            AppbarBackground = "#0B2A57",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#101B2E",
+            DrawerText = "#E8EEF7",
+            TextPrimary = "#F4F7FB",
+            TextSecondary = "#AAB8CC",
+            LinesDefault = "#2A3A52"
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "10px"
+        }
+    };
+
+    private bool _drawerExpanded = true;
+
+    private bool _isDarkMode = true;
+
+    private void ToggleDrawer()
+    {
+        _drawerExpanded = !_drawerExpanded;
+    }
+
+    private bool _themeLoaded;
+
+    protected override async Task OnAfterRenderAsync(
+        bool firstRender)
+    {
+        if (!firstRender || _themeLoaded)
+        {
+            return;
+        }
+
+        _themeLoaded = true;
+
+        try
+        {
+            var stored =
+                await JSRuntime.InvokeAsync<string?>(
+                    "localStorage.getItem",
+                    "jellyinspector.darkMode");
+
+            // Por defecto siempre oscuro
+_isDarkMode = true;
+
+if (bool.TryParse(stored, out var darkMode))
+{
+    _isDarkMode = darkMode;
+}
+
+await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // El tema seguirá funcionando aunque localStorage no esté disponible.
+        }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "localStorage.setItem",
+                "jellyinspector.darkMode",
+                _isDarkMode.ToString());
+        }
+        catch
+        {
+            // El cambio visual no depende del guardado.
+        }
+    }
+}

@@ -1,0 +1,1109 @@
+@page "/series/{SeriesId}"
+@rendermode InteractiveServer
+
+@using JellyInspector.Application.Interfaces
+@using JellyInspector.Application.Models
+@using SeriesDetailModel = JellyInspector.Application.Models.SeriesDetail
+@using JellyInspector.Application.Scanning
+@using JellyInspector.Infrastructure.Tmdb
+
+@inject IJellyfinService JellyfinService
+@inject ISeriesIssueService SeriesIssueService
+@inject ITmdbClient TmdbClient
+@inject NavigationManager Navigation
+
+<PageTitle>@(_series?.Name ?? "Detalle de serie")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="series-detail-page">
+
+    <MudButton Variant="Variant.Text"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="GoBack"
+               Class="mb-4">
+        Volver a escaneo
+    </MudButton>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-8">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudProgressCircular Indeterminate="true"
+                                     Color="Color.Primary"
+                                     Size="Size.Large" />
+                <MudText>Cargando información de la serie...</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            @_errorMessage
+        </MudAlert>
+    }
+    else if (_series is null)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Filled">
+            No se ha encontrado la serie.
+        </MudAlert>
+    }
+    else
+    {
+        <section class="series-hero" style="@GetHeroStyle()">
+            <div class="series-hero-overlay"></div>
+
+            <div class="series-hero-content">
+                <div class="series-poster-wrap">
+                    <MudImage Src="@GetBestPosterUrl()"
+                              Alt="@_series.Name"
+                              Width="210"
+                              Height="315"
+                              ObjectFit="ObjectFit.Cover"
+                              Class="series-poster" />
+                </div>
+
+                <div class="series-hero-info">
+                    <MudStack Row="true"
+                              AlignItems="AlignItems.Center"
+                              Spacing="2"
+                              Class="mb-2">
+                        <MudChip T="string"
+                                 Color="@GetBroadcastColor()"
+                                 Variant="Variant.Filled"
+                                 Icon="@GetBroadcastIcon()">
+                            @GetBroadcastStatus()
+                        </MudChip>
+
+                        @if (_tmdb is not null && _tmdb.VoteAverage > 0)
+                        {
+                            <MudChip T="string"
+                                     Color="Color.Warning"
+                                     Variant="Variant.Filled"
+                                     Icon="@Icons.Material.Filled.Star">
+                                @_tmdb.VoteAverage.ToString("0.0") / 10
+                            </MudChip>
+                        }
+                    </MudStack>
+
+                    <MudText Typo="Typo.h2" Class="series-title">
+                        @_series.Name
+                    </MudText>
+
+                    @if (_tmdb is not null &&
+                         !string.IsNullOrWhiteSpace(_tmdb.OriginalName) &&
+                         !string.Equals(_tmdb.OriginalName, _series.Name,
+                             StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudText Typo="Typo.subtitle1" Class="series-original-title">
+                            @_tmdb.OriginalName
+                        </MudText>
+                    }
+
+                    @if (_tmdb is not null &&
+                         !string.IsNullOrWhiteSpace(_tmdb.Tagline))
+                    {
+                        <MudText Typo="Typo.h6" Class="series-tagline">
+                            @_tmdb.Tagline
+                        </MudText>
+                    }
+
+                    <MudStack Row="true"
+                              Wrap="Wrap.Wrap"
+                              Spacing="1"
+                              Class="mt-3 mb-3">
+                        <MudChip T="string" Variant="Variant.Outlined">
+                            @GetYearRange()
+                        </MudChip>
+                        <MudChip T="string" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Filled.VideoLibrary">
+                            @GetExpectedSeasonCount() temporadas
+                        </MudChip>
+                        <MudChip T="string" Variant="Variant.Outlined"
+                                 Icon="@Icons.Material.Filled.Movie">
+                            @GetExpectedEpisodeCount() episodios
+                        </MudChip>
+
+                        @if (_tmdb is not null)
+                        {
+                            @foreach (var genre in _tmdb.Genres.Take(4))
+                            {
+                                <MudChip T="string" Variant="Variant.Outlined">
+                                    @genre
+                                </MudChip>
+                            }
+                        }
+                    </MudStack>
+
+                    <MudText Typo="Typo.body1" Class="series-overview">
+                        @GetOverview()
+                    </MudText>
+
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                   OnClick="OpenInJellyfin">
+                            Abrir en Jellyfin
+                        </MudButton>
+
+                        @if (!string.IsNullOrWhiteSpace(_series.TmdbId))
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.CompareArrows"
+                                       OnClick="OpenComparison">
+                                Comparar con TMDb
+                            </MudButton>
+                        }
+                    </MudStack>
+                </div>
+            </div>
+        </section>
+
+        <MudGrid Spacing="3" Class="mt-1">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 metric-card" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Salud</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center"
+                              Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h4">@GetHealthScore() %</MudText>
+                        <MudIcon Icon="@GetHealthIcon()" Color="@GetHealthColor()"
+                                 Size="Size.Large" />
+                    </MudStack>
+                    <MudProgressLinear Value="@GetHealthScore()"
+                                       Color="@GetHealthColor()"
+                                       Rounded="true" />
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 metric-card" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Completada</MudText>
+                    <MudText Typo="Typo.h4">@GetCompletionPercentage().ToString("0.#") %</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @GetAvailableEpisodeCount() de @GetExpectedEpisodeCount() episodios
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 metric-card" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cadena / plataforma</MudText>
+                    <MudText Typo="Typo.h6">@GetNetworks()</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @GetCountries()
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 metric-card" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Incidencias</MudText>
+                    <MudText Typo="Typo.h4" Color="@(_actionableIssues.Count > 0 ? Color.Error : Color.Success)">
+                        @_actionableIssues.Count
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @GetIssuesSummary()
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (_tmdb?.NextEpisodeToAir is not null ||
+             _tmdb?.LastEpisodeToAir is not null)
+        {
+            <MudGrid Spacing="3" Class="mt-1">
+                @if (_tmdb?.LastEpisodeToAir is not null)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4 episode-highlight" Elevation="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Color="Color.Success" Variant="Variant.Filled">
+                                    <MudIcon Icon="@Icons.Material.Filled.History" />
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Último episodio emitido
+                                    </MudText>
+                                    <MudText Typo="Typo.h6">
+                                        @FormatEpisode(_tmdb.LastEpisodeToAir)
+                                    </MudText>
+                                    <MudText Typo="Typo.body2">
+                                        @FormatEpisodeDate(_tmdb.LastEpisodeToAir)
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                @if (_tmdb?.NextEpisodeToAir is not null)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4 episode-highlight" Elevation="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Color="Color.Info" Variant="Variant.Filled">
+                                    <MudIcon Icon="@Icons.Material.Filled.Schedule" />
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Próximo episodio
+                                    </MudText>
+                                    <MudText Typo="Typo.h6">
+                                        @FormatEpisode(_tmdb.NextEpisodeToAir)
+                                    </MudText>
+                                    <MudText Typo="Typo.body2">
+                                        @FormatEpisodeDate(_tmdb.NextEpisodeToAir)
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
+        <MudPaper Class="pa-5 mt-4" Elevation="1">
+            <MudStack Row="true"
+                      AlignItems="AlignItems.Center"
+                      Justify="Justify.SpaceBetween"
+                      Class="mb-4">
+                <div>
+                    <MudText Typo="Typo.h4">Temporadas</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Comparación entre Jellyfin y TMDb
+                    </MudText>
+                </div>
+                <MudChip T="string"
+                         Color="@(_actionableIssues.Count == 0 ? Color.Success : Color.Error)"
+                         Variant="Variant.Filled">
+                    @(_actionableIssues.Count == 0 ? "Todo al día" : $"{_actionableIssues.Count} incidencias")
+                </MudChip>
+            </MudStack>
+
+            <MudGrid Spacing="2">
+                @foreach (var row in GetSeasonRows())
+                {
+                    <MudItem xs="12" sm="6" lg="4">
+                        <MudPaper Class="season-card pa-4" Elevation="0">
+                            <MudStack Row="true"
+                                      AlignItems="AlignItems.Center"
+                                      Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Color="@GetSeasonColor(row)"
+                                               Variant="Variant.Filled">
+                                        @(row.SeasonNumber == 0 ? "E" : row.SeasonNumber)
+                                    </MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.h6">@row.Name</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @row.AvailableEpisodes de @row.ExpectedEpisodes episodios
+                                        </MudText>
+                                    </div>
+                                </MudStack>
+                                <MudIcon Icon="@GetSeasonIcon(row)"
+                                         Color="@GetSeasonColor(row)" />
+                            </MudStack>
+
+                            <MudProgressLinear Value="@GetSeasonCompletion(row)"
+                                               Color="@GetSeasonColor(row)"
+                                               Rounded="true"
+                                               Class="my-3" />
+
+                            @if (row.IsFuture)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                                    Próximamente@(row.AirDate.HasValue ? $" · {row.AirDate.Value:dd/MM/yyyy}" : string.Empty)
+                                </MudAlert>
+                            }
+                            else if (row.IsAiring && row.MissingEpisodes.Count == 0)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                                    Temporada en emisión y biblioteca al día.
+                                </MudAlert>
+                            }
+                            else if (row.IsMissingSeason)
+                            {
+                                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined">
+                                    Falta la temporada completa.
+                                </MudAlert>
+                            }
+                            else if (row.MissingEpisodes.Count > 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Error">
+                                    Faltan: @string.Join(", ", row.MissingEpisodes.Select(x => $"E{x:00}"))
+                                </MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Success">
+                                    Temporada completa.
+                                </MudText>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            <MudDivider Class="my-5" />
+
+            <MudText Typo="Typo.h5" Class="mb-1">Detalle por temporada</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Estado de cada episodio según Jellyfin y la fecha de emisión de TMDb.
+            </MudText>
+
+            <MudExpansionPanels MultiExpansion="true" Elevation="0">
+                @foreach (var row in GetSeasonRows())
+                {
+                    <MudExpansionPanel Class="season-expansion"
+                                       Expanded="@(row.MissingEpisodes.Count > 0 || row.IsMissingSeason)">
+                        <TitleContent>
+                            <MudStack Row="true"
+                                      AlignItems="AlignItems.Center"
+                                      Justify="Justify.SpaceBetween"
+                                      Class="season-expansion-title">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Color="@GetSeasonColor(row)" Variant="Variant.Filled" Size="Size.Small">
+                                        @(row.SeasonNumber == 0 ? "E" : row.SeasonNumber)
+                                    </MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.subtitle1">@row.Name</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @row.AvailableEpisodes de @row.ExpectedEpisodes episodios
+                                        </MudText>
+                                    </div>
+                                </MudStack>
+
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@GetSeasonColor(row)"
+                                         Variant="Variant.Outlined"
+                                         Icon="@GetSeasonIcon(row)">
+                                    @GetSeasonStatusText(row)
+                                </MudChip>
+                            </MudStack>
+                        </TitleContent>
+
+                        <ChildContent>
+                            @if (row.IsMissingSeason)
+                            {
+                                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-3">
+                                    La temporada completa no está disponible en Jellyfin.
+                                </MudAlert>
+                            }
+
+                            <div class="episode-list">
+                                @foreach (var episode in GetEpisodeRows(row))
+                                {
+                                    <div class="episode-row">
+                                        <MudAvatar Color="@GetEpisodeStatusColor(episode.Status)"
+                                                   Variant="Variant.Filled"
+                                                   Size="Size.Small">
+                                            <MudIcon Icon="@GetEpisodeStatusIcon(episode.Status)" Size="Size.Small" />
+                                        </MudAvatar>
+
+                                        <div class="episode-row-main">
+                                            <MudText Typo="Typo.body1">
+                                                <strong>@($"T{episode.SeasonNumber:00}E{episode.EpisodeNumber:00}")</strong>
+                                                @if (!string.IsNullOrWhiteSpace(episode.Name))
+                                                {
+                                                    <span> · @episode.Name</span>
+                                                }
+                                            </MudText>
+
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @GetEpisodeSecondaryText(episode)
+                                            </MudText>
+                                        </div>
+
+                                        <MudChip T="string"
+                                                 Size="Size.Small"
+                                                 Color="@GetEpisodeStatusColor(episode.Status)"
+                                                 Variant="Variant.Outlined">
+                                            @GetEpisodeStatusLabel(episode.Status)
+                                        </MudChip>
+                                    </div>
+                                }
+                            </div>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                }
+            </MudExpansionPanels>
+        </MudPaper>
+    }
+
+</MudContainer>
+
+<style>
+    .series-detail-page {
+        margin-top: 24px;
+        margin-bottom: 40px;
+    }
+
+    .series-hero {
+        position: relative;
+        min-height: 440px;
+        border-radius: 18px;
+        overflow: hidden;
+        background-color: var(--mud-palette-surface);
+        background-size: cover;
+        background-position: center;
+        box-shadow: var(--mud-elevation-4);
+    }
+
+    .series-hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg,
+            rgba(10, 14, 22, .96) 0%,
+            rgba(10, 14, 22, .86) 42%,
+            rgba(10, 14, 22, .45) 72%,
+            rgba(10, 14, 22, .28) 100%);
+    }
+
+    .series-hero-content {
+        position: relative;
+        z-index: 1;
+        min-height: 440px;
+        padding: 42px;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        color: white;
+    }
+
+    .series-poster-wrap {
+        flex: 0 0 auto;
+    }
+
+    .series-poster {
+        border-radius: 14px;
+        box-shadow: 0 16px 45px rgba(0, 0, 0, .45);
+        display: block;
+    }
+
+    .series-hero-info {
+        max-width: 850px;
+    }
+
+    .series-title {
+        color: white;
+        font-weight: 800;
+        line-height: 1.05;
+    }
+
+    .series-original-title,
+    .series-tagline {
+        color: rgba(255,255,255,.76);
+    }
+
+    .series-tagline {
+        font-style: italic;
+        margin-top: 8px;
+    }
+
+    .series-overview {
+        color: rgba(255,255,255,.9);
+        line-height: 1.7;
+        max-width: 850px;
+    }
+
+    .metric-card {
+        height: 100%;
+        min-height: 132px;
+        border-radius: 14px;
+    }
+
+    .episode-highlight {
+        height: 100%;
+        border-radius: 14px;
+    }
+
+    .season-card {
+        height: 100%;
+        min-height: 185px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 14px;
+    }
+
+    .season-expansion {
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        overflow: hidden;
+    }
+
+    .season-expansion-title {
+        width: 100%;
+        padding-right: 8px;
+    }
+
+    .episode-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 4px 0 8px;
+    }
+
+    .episode-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 10px;
+        background: var(--mud-palette-surface);
+    }
+
+    .episode-row-main {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    @@media (max-width: 760px) {
+        .series-hero-content {
+            padding: 24px;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .series-poster-wrap {
+            align-self: center;
+        }
+
+        .series-title {
+            font-size: 2.3rem;
+        }
+    }
+</style>
+
+@code
+{
+    [Parameter]
+    public string SeriesId { get; set; } = string.Empty;
+
+    private SeriesDetailModel? _series;
+    private TmdbSeries? _tmdb;
+    private IReadOnlyList<ScanIssue> _issues = Array.Empty<ScanIssue>();
+    private List<ScanIssue> _actionableIssues = [];
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _series = null;
+        _tmdb = null;
+        _issues = Array.Empty<ScanIssue>();
+        _actionableIssues.Clear();
+
+        try
+        {
+            var seriesTask = JellyfinService.GetSeriesDetailAsync(SeriesId);
+            var issuesTask = SeriesIssueService.GetByJellyfinIdAsync(SeriesId);
+
+            await Task.WhenAll(seriesTask, issuesTask);
+
+            _series = await seriesTask;
+            _issues = await issuesTask;
+            _actionableIssues = _issues
+                .Where(issue => issue.Type is not ScanIssueType.Airing
+                    and not ScanIssueType.Upcoming)
+                .ToList();
+
+            if (_series is null)
+            {
+                _errorMessage = "Jellyfin no ha devuelto información para esta serie.";
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_series.TmdbId))
+            {
+                try
+                {
+                    _tmdb = await TmdbClient.GetSeriesAsync(_series.TmdbId);
+                }
+                catch
+                {
+                    // La ficha sigue funcionando con los datos de Jellyfin.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"No se pudo cargar la serie: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetHeroStyle()
+    {
+        if (_tmdb is null || string.IsNullOrWhiteSpace(_tmdb.BackdropPath))
+        {
+            return string.Empty;
+        }
+
+        return $"background-image:url('{GetTmdbImageUrl(_tmdb.BackdropPath, "original")}');";
+    }
+
+    private string GetBestPosterUrl()
+    {
+        if (_tmdb is not null && !string.IsNullOrWhiteSpace(_tmdb.PosterPath))
+        {
+            return GetTmdbImageUrl(_tmdb.PosterPath, "w500");
+        }
+
+        return GetJellyfinPosterUrl();
+    }
+
+    private static string GetTmdbImageUrl(string path, string size)
+        => $"https://image.tmdb.org/t/p/{size}{path}";
+
+    private string GetJellyfinPosterUrl()
+    {
+        if (_series is null)
+        {
+            return string.Empty;
+        }
+
+        var url = $"/api/jellyfin/image/{Uri.EscapeDataString(_series.Id)}";
+
+        if (!string.IsNullOrWhiteSpace(_series.ImageTag))
+        {
+            url += $"?tag={Uri.EscapeDataString(_series.ImageTag)}";
+        }
+
+        return url;
+    }
+
+    private string GetOverview()
+    {
+        if (_tmdb is not null && !string.IsNullOrWhiteSpace(_tmdb.Overview))
+        {
+            return _tmdb.Overview;
+        }
+
+        return !string.IsNullOrWhiteSpace(_series?.Overview)
+            ? _series.Overview
+            : "No hay sinopsis disponible.";
+    }
+
+    private int GetAvailableEpisodeCount()
+        => _series?.Seasons.Sum(season => season.EpisodeCount) ?? 0;
+
+    private int GetExpectedEpisodeCount()
+        => _tmdb?.NumberOfEpisodes > 0
+            ? _tmdb.NumberOfEpisodes
+            : GetAvailableEpisodeCount() + _actionableIssues.Count(issue =>
+                issue.Type == ScanIssueType.MissingEpisode);
+
+    private int GetExpectedSeasonCount()
+        => _tmdb?.NumberOfSeasons > 0
+            ? _tmdb.NumberOfSeasons
+            : _series?.Seasons.Count ?? 0;
+
+    private double GetCompletionPercentage()
+    {
+        var expected = GetExpectedEpisodeCount();
+        return expected <= 0
+            ? 100d
+            : Math.Clamp(GetAvailableEpisodeCount() * 100d / expected, 0d, 100d);
+    }
+
+    private int GetHealthScore()
+    {
+        var score = 100;
+
+        foreach (var issue in _actionableIssues)
+        {
+            score -= issue.Type switch
+            {
+                ScanIssueType.MissingEpisode => 1,
+                ScanIssueType.MissingSeason => 15,
+                ScanIssueType.DuplicateEpisode => 2,
+                ScanIssueType.MissingPoster => 5,
+                ScanIssueType.MissingOverview => 5,
+                ScanIssueType.MissingTmdb => 10,
+                ScanIssueType.MetadataMismatch => 5,
+                _ => 0
+            };
+        }
+
+        return Math.Clamp(score, 0, 100);
+    }
+
+    private Color GetHealthColor()
+        => GetHealthScore() switch
+        {
+            >= 90 => Color.Success,
+            >= 75 => Color.Warning,
+            _ => Color.Error
+        };
+
+    private string GetHealthIcon()
+        => GetHealthScore() switch
+        {
+            >= 90 => Icons.Material.Filled.Verified,
+            >= 75 => Icons.Material.Filled.ThumbUp,
+            _ => Icons.Material.Filled.Warning
+        };
+
+    private string GetBroadcastStatus()
+    {
+        if (_tmdb is null)
+        {
+            return "Estado no disponible";
+        }
+
+        if (_tmdb.NextEpisodeToAir is not null || _tmdb.InProduction)
+        {
+            return "En emisión";
+        }
+
+        return _tmdb.Status switch
+        {
+            "Ended" => "Finalizada",
+            "Canceled" => "Cancelada",
+            "Planned" => "Próximamente",
+            "Pilot" => "Piloto",
+            _ => string.IsNullOrWhiteSpace(_tmdb.Status)
+                ? "Estado no disponible"
+                : TranslateStatus(_tmdb.Status)
+        };
+    }
+
+    private Color GetBroadcastColor()
+        => GetBroadcastStatus() switch
+        {
+            "En emisión" => Color.Info,
+            "Finalizada" => Color.Success,
+            "Próximamente" => Color.Secondary,
+            "Cancelada" => Color.Error,
+            _ => Color.Default
+        };
+
+    private string GetBroadcastIcon()
+        => GetBroadcastStatus() switch
+        {
+            "En emisión" => Icons.Material.Filled.LiveTv,
+            "Finalizada" => Icons.Material.Filled.CheckCircle,
+            "Próximamente" => Icons.Material.Filled.Schedule,
+            "Cancelada" => Icons.Material.Filled.Cancel,
+            _ => Icons.Material.Filled.Info
+        };
+
+    private static string TranslateStatus(string status)
+        => status switch
+        {
+            "Returning Series" => "En emisión",
+            "In Production" => "En producción",
+            "Ended" => "Finalizada",
+            "Canceled" => "Cancelada",
+            "Planned" => "Próximamente",
+            "Pilot" => "Piloto",
+            _ => status
+        };
+
+    private string GetYearRange()
+    {
+        var firstYear = _tmdb?.FirstAirDate?.Year ?? _series?.ProductionYear ?? 0;
+        var lastYear = _tmdb?.LastAirDate?.Year;
+
+        if (firstYear <= 0)
+        {
+            return "Año desconocido";
+        }
+
+        if (_tmdb?.InProduction == true || _tmdb?.NextEpisodeToAir is not null)
+        {
+            return $"{firstYear} - actualidad";
+        }
+
+        return lastYear.HasValue && lastYear.Value != firstYear
+            ? $"{firstYear} - {lastYear.Value}"
+            : firstYear.ToString();
+    }
+
+    private string GetNetworks()
+        => _tmdb is not null && _tmdb.Networks.Count > 0
+            ? string.Join(" · ", _tmdb.Networks)
+            : "No disponible";
+
+    private string GetCountries()
+        => _tmdb is not null && _tmdb.ProductionCountries.Count > 0
+            ? string.Join(" · ", _tmdb.ProductionCountries)
+            : string.Empty;
+
+    private string GetIssuesSummary()
+    {
+        if (_actionableIssues.Count == 0)
+        {
+            return "No requiere ninguna acción";
+        }
+
+        var episodes = _actionableIssues.Count(x => x.Type == ScanIssueType.MissingEpisode);
+        var seasons = _actionableIssues.Count(x => x.Type == ScanIssueType.MissingSeason);
+        return $"{episodes} episodio(s) · {seasons} temporada(s)";
+    }
+
+    private IEnumerable<SeasonRow> GetSeasonRows()
+    {
+        if (_series is null)
+        {
+            return [];
+        }
+
+        var seasonNumbers = _series.Seasons.Select(x => x.IndexNumber)
+            .Concat(_tmdb?.Seasons.Select(x => x.SeasonNumber) ?? [])
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
+
+        return seasonNumbers.Select(number =>
+        {
+            var jellyfinSeason = _series.Seasons.FirstOrDefault(x => x.IndexNumber == number);
+            var tmdbSeason = _tmdb?.Seasons.FirstOrDefault(x => x.SeasonNumber == number);
+            var issues = _issues.Where(x => x.SeasonNumber == number).ToList();
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            return new SeasonRow
+            {
+                SeasonNumber = number,
+                Name = jellyfinSeason?.Name ?? tmdbSeason?.Name ??
+                    (number == 0 ? "Especiales" : $"Temporada {number}"),
+                AvailableEpisodes = jellyfinSeason?.EpisodeCount ?? 0,
+                ExpectedEpisodes = tmdbSeason?.EpisodeCount > 0
+                    ? tmdbSeason.EpisodeCount
+                    : jellyfinSeason?.EpisodeCount ?? 0,
+                AirDate = tmdbSeason?.AirDate,
+                IsFuture = tmdbSeason?.AirDate is not null && tmdbSeason.AirDate > today,
+                IsAiring = issues.Any(x => x.Type == ScanIssueType.Airing),
+                IsMissingSeason = issues.Any(x => x.Type == ScanIssueType.MissingSeason),
+                MissingEpisodes = issues
+                    .Where(x => x.Type == ScanIssueType.MissingEpisode && x.EpisodeNumber.HasValue)
+                    .Select(x => x.EpisodeNumber!.Value)
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList()
+            };
+        });
+    }
+
+    private static double GetSeasonCompletion(SeasonRow row)
+        => row.ExpectedEpisodes <= 0
+            ? 100d
+            : Math.Clamp(row.AvailableEpisodes * 100d / row.ExpectedEpisodes, 0d, 100d);
+
+    private static Color GetSeasonColor(SeasonRow row)
+    {
+        if (row.IsFuture || row.IsAiring && row.MissingEpisodes.Count == 0)
+        {
+            return Color.Info;
+        }
+
+        if (row.IsMissingSeason || row.MissingEpisodes.Count > 0)
+        {
+            return Color.Error;
+        }
+
+        return Color.Success;
+    }
+
+    private static string GetSeasonIcon(SeasonRow row)
+    {
+        if (row.IsFuture)
+        {
+            return Icons.Material.Filled.Schedule;
+        }
+
+        if (row.IsAiring && row.MissingEpisodes.Count == 0)
+        {
+            return Icons.Material.Filled.LiveTv;
+        }
+
+        if (row.IsMissingSeason || row.MissingEpisodes.Count > 0)
+        {
+            return Icons.Material.Filled.Error;
+        }
+
+        return Icons.Material.Filled.CheckCircle;
+    }
+
+    private IEnumerable<EpisodeRow> GetEpisodeRows(SeasonRow season)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tmdbSeason = _tmdb?.Seasons.FirstOrDefault(item =>
+            item.SeasonNumber == season.SeasonNumber);
+
+        if (tmdbSeason is null || tmdbSeason.Episodes.Count == 0)
+        {
+            return Enumerable.Range(1, Math.Max(season.ExpectedEpisodes, season.AvailableEpisodes))
+                .Select(number => new EpisodeRow
+                {
+                    SeasonNumber = season.SeasonNumber,
+                    EpisodeNumber = number,
+                    Status = season.IsMissingSeason || season.MissingEpisodes.Contains(number)
+                        ? EpisodeAvailability.Missing
+                        : EpisodeAvailability.Available
+                });
+        }
+
+        return tmdbSeason.Episodes
+            .OrderBy(item => item.EpisodeNumber)
+            .Select(item =>
+            {
+                var status = EpisodeAvailability.Available;
+
+                if (!item.AirDate.HasValue || item.AirDate.Value > today)
+                {
+                    status = EpisodeAvailability.NotAired;
+                }
+                else if (season.IsMissingSeason ||
+                         season.MissingEpisodes.Contains(item.EpisodeNumber))
+                {
+                    status = EpisodeAvailability.Missing;
+                }
+
+                return new EpisodeRow
+                {
+                    SeasonNumber = season.SeasonNumber,
+                    EpisodeNumber = item.EpisodeNumber,
+                    Name = item.Name,
+                    AirDate = item.AirDate,
+                    Runtime = item.Runtime,
+                    Status = status
+                };
+            });
+    }
+
+    private static string GetSeasonStatusText(SeasonRow row)
+    {
+        if (row.IsFuture)
+        {
+            return "Próximamente";
+        }
+
+        if (row.IsAiring && row.MissingEpisodes.Count == 0)
+        {
+            return "En emisión";
+        }
+
+        if (row.IsMissingSeason)
+        {
+            return "Temporada faltante";
+        }
+
+        if (row.MissingEpisodes.Count > 0)
+        {
+            return $"{row.MissingEpisodes.Count} faltante(s)";
+        }
+
+        return "Completa";
+    }
+
+    private static Color GetEpisodeStatusColor(EpisodeAvailability status)
+        => status switch
+        {
+            EpisodeAvailability.Available => Color.Success,
+            EpisodeAvailability.Missing => Color.Error,
+            EpisodeAvailability.NotAired => Color.Info,
+            _ => Color.Default
+        };
+
+    private static string GetEpisodeStatusIcon(EpisodeAvailability status)
+        => status switch
+        {
+            EpisodeAvailability.Available => Icons.Material.Filled.Check,
+            EpisodeAvailability.Missing => Icons.Material.Filled.Close,
+            EpisodeAvailability.NotAired => Icons.Material.Filled.Event,
+            _ => Icons.Material.Filled.Help
+        };
+
+    private static string GetEpisodeStatusLabel(EpisodeAvailability status)
+        => status switch
+        {
+            EpisodeAvailability.Available => "Existe",
+            EpisodeAvailability.Missing => "Falta",
+            EpisodeAvailability.NotAired => "Aún no emitido",
+            _ => "Desconocido"
+        };
+
+    private static string GetEpisodeSecondaryText(EpisodeRow episode)
+    {
+        var parts = new List<string>();
+
+        if (episode.AirDate.HasValue)
+        {
+            parts.Add($"Emisión: {episode.AirDate.Value:dd/MM/yyyy}");
+        }
+        else
+        {
+            parts.Add("Fecha de emisión no disponible");
+        }
+
+        if (episode.Runtime > 0)
+        {
+            parts.Add($"{episode.Runtime} min");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string FormatEpisode(TmdbEpisode episode)
+        => $"T{episode.SeasonNumber:00}E{episode.EpisodeNumber:00}" +
+           (string.IsNullOrWhiteSpace(episode.Name) ? string.Empty : $" · {episode.Name}");
+
+    private static string FormatEpisodeDate(TmdbEpisode episode)
+        => episode.AirDate.HasValue
+            ? episode.AirDate.Value.ToString("dd/MM/yyyy")
+            : "Fecha no disponible";
+
+    private void OpenInJellyfin()
+    {
+        Navigation.NavigateTo($"/api/jellyfin/open/{Uri.EscapeDataString(SeriesId)}", true);
+    }
+
+    private void OpenComparison()
+    {
+        Navigation.NavigateTo($"/compare/{Uri.EscapeDataString(SeriesId)}");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/scanner");
+    }
+
+    private enum EpisodeAvailability
+    {
+        Available,
+        Missing,
+        NotAired
+    }
+
+    private sealed class EpisodeRow
+    {
+        public int SeasonNumber { get; init; }
+        public int EpisodeNumber { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public DateOnly? AirDate { get; init; }
+        public int Runtime { get; init; }
+        public EpisodeAvailability Status { get; init; }
+    }
+
+    private sealed class SeasonRow
+    {
+        public int SeasonNumber { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public int AvailableEpisodes { get; init; }
+        public int ExpectedEpisodes { get; init; }
+        public DateOnly? AirDate { get; init; }
+        public bool IsFuture { get; init; }
+        public bool IsAiring { get; init; }
+        public bool IsMissingSeason { get; init; }
+        public List<int> MissingEpisodes { get; init; } = [];
+    }
+}
