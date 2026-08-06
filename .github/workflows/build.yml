@@ -1,0 +1,41 @@
+﻿name: Build and test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build JellyInspector
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore JellyInspector.sln
+
+      - name: Build solution
+        run: dotnet build JellyInspector.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test JellyInspector.sln --configuration Release --no-build --verbosity normal
