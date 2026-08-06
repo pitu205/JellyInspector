@@ -1,6 +1,6 @@
 ﻿param(
     [string]$Version = "0.2.0.0",
-    [string]$TargetAbi = "10.11.8.0",
+    [string]$TargetAbi = "10.11.0.0",
     [string]$Owner = "pitu205"
 )
 
