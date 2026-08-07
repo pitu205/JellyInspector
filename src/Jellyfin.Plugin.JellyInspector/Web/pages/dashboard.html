@@ -532,29 +532,76 @@
                 </header>
                 <section id="settingsMessage" class="ji-message" hidden></section>
                 <section class="ji-settings-panel">
-                    <div class="ji-form-group">
+                    <div class="ji-form-group ji-settings-tmdb-group">
                         <label for="settingsTmdbApiKey">API Key de TMDb</label>
-                        <input
-    id="settingsTmdbApiKey"
-    name="ji-tmdb-token-field"
-    type="text"
-    class="ji-secret-text"
-    autocomplete="off"
-    aria-autocomplete="none"
-    autocorrect="off"
-    autocapitalize="off"
-    spellcheck="false"
-    data-lpignore="true"
-    data-1p-ignore="true"
-    data-bwignore="true"
-    data-form-type="other"
-    readonly
-    onpointerdown="this.removeAttribute('readonly')"
-    onfocus="this.removeAttribute('readonly')"
-    placeholder="Introduce tu API Key de TMDb">
-                        <small>La clave se guarda en la configuración del plugin de Jellyfin.</small>
+
+                        <div class="ji-settings-key-row">
+                            <input
+                                id="settingsTmdbApiKey"
+                                name="ji-tmdb-token-field"
+                                type="text"
+                                class="ji-secret-text"
+                                autocomplete="off"
+                                aria-autocomplete="none"
+                                autocorrect="off"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                data-lpignore="true"
+                                data-1p-ignore="true"
+                                data-bwignore="true"
+                                data-form-type="other"
+                                readonly
+                                onpointerdown="this.removeAttribute('readonly')"
+                                onfocus="this.removeAttribute('readonly')"
+                                placeholder="Introduce tu API Key de TMDb">
+
+                            <button id="settingsPaste" type="button" class="ji-secondary">
+                                Pegar desde portapapeles
+                            </button>
+                        </div>
+
+                        <div class="ji-settings-api-status" aria-live="polite">
+                            <span id="settingsTmdbStatus" class="ji-settings-status neutral">
+                                Sin comprobar
+                            </span>
+                            <small>La clave se guarda en la configuración del plugin de Jellyfin.</small>
+                        </div>
+
+                        <aside class="ji-settings-tmdb-help">
+                            <div class="ji-settings-tmdb-help-head">
+                                <div>
+                                    <strong>JellyInspector necesita una API Key de TMDb</strong>
+                                    <span>Se utiliza para consultar series, temporadas, episodios y datos de emisión.</span>
+                                </div>
+
+                                <a
+                                    class="ji-settings-tmdb-link"
+                                    href="https://www.themoviedb.org/settings/api"
+                                    target="_blank"
+                                    rel="noopener noreferrer">
+                                    Abrir API de TMDb
+                                </a>
+                            </div>
+
+                            <ol>
+                                <li>
+                                    Crea una cuenta en TMDb.
+                                    <a
+                                        class="ji-settings-inline-link"
+                                        href="https://www.themoviedb.org/signup"
+                                        target="_blank"
+                                        rel="noopener noreferrer">
+                                        Crear cuenta
+                                    </a>
+                                </li>
+                                <li>Ve a Perfil / Ajustes &rarr; API.</li>
+                                <li>Solicita una API Developer haciendo clic en el botón Solicitar API.</li>
+                                <li>Copia la API Key v3.</li>
+                                <li>Pégala aquí y pulsa Probar conexión.</li>
+                            </ol>
+                        </aside>
                     </div>
-                    <div class="ji-form-group">
+<div class="ji-form-group">
                         <label for="settingsTmdbLanguage">Idioma de TMDb</label>
                         <select id="settingsTmdbLanguage">
                             <option value="es-ES">Español (España)</option>
@@ -6574,6 +6621,34 @@ body > .ji054-quick-detail .ji054-quick-actions .ji054-quick-full {
 }
 
 /* JI058.3 COMPACT WORKSPACE CSS END */
+
+/* JI057 TMDB SETTINGS UX START */
+#JellyInspectorDashboard .ji-settings-key-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+#JellyInspectorDashboard .ji-settings-key-row #settingsPaste{min-height:44px;white-space:nowrap}
+#JellyInspectorDashboard .ji-settings-api-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+#JellyInspectorDashboard .ji-settings-api-status small{margin:0}
+#JellyInspectorDashboard .ji-settings-status{display:inline-flex;min-height:28px;align-items:center;padding:0 10px;border:1px solid rgba(148,163,184,.24);border-radius:999px;background:rgba(148,163,184,.08);color:#aebdce;font-size:.70rem;font-weight:900}
+#JellyInspectorDashboard .ji-settings-status.checking{border-color:rgba(75,167,255,.34);background:rgba(75,167,255,.09);color:#91cdff}
+#JellyInspectorDashboard .ji-settings-status.valid{border-color:rgba(32,217,139,.40);background:rgba(32,217,139,.10);color:#75eab3}
+#JellyInspectorDashboard .ji-settings-status.invalid{border-color:rgba(255,82,107,.40);background:rgba(255,82,107,.10);color:#ff9eac}
+#JellyInspectorDashboard .ji-settings-tmdb-help{margin-top:16px;padding:17px 18px;border:1px solid rgba(75,167,255,.22);border-radius:14px;background:radial-gradient(circle at 100% 0%,rgba(75,167,255,.10),transparent 38%),rgba(10,25,42,.54)}
+#JellyInspectorDashboard .ji-settings-tmdb-help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+#JellyInspectorDashboard .ji-settings-tmdb-help-head strong,#JellyInspectorDashboard .ji-settings-tmdb-help-head span{display:block}
+#JellyInspectorDashboard .ji-settings-tmdb-help-head strong{color:#f3f8ff;font-size:.92rem}
+#JellyInspectorDashboard .ji-settings-tmdb-help-head span{margin-top:4px;color:#9fb0c5;font-size:.77rem;line-height:1.4}
+#JellyInspectorDashboard .ji-settings-tmdb-link,#JellyInspectorDashboard .ji-settings-inline-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(75,167,255,.36);background:rgba(75,167,255,.09);color:#9ed2ff;font-size:.74rem;font-weight:850;text-decoration:none}
+#JellyInspectorDashboard .ji-settings-tmdb-link{min-height:38px;flex:0 0 auto;padding:0 12px;border-radius:10px}
+#JellyInspectorDashboard .ji-settings-inline-link{min-height:25px;margin-left:8px;padding:0 8px;border-radius:7px;vertical-align:middle}
+#JellyInspectorDashboard .ji-settings-tmdb-link:hover,#JellyInspectorDashboard .ji-settings-inline-link:hover{border-color:rgba(75,167,255,.62);background:rgba(75,167,255,.14);color:#fff}
+#JellyInspectorDashboard .ji-settings-tmdb-help ol{margin:15px 0 0;padding-left:21px;color:#b9c7d7;font-size:.78rem;line-height:1.65}
+#JellyInspectorDashboard .ji-settings-tmdb-help li::marker{color:#63b8ff;font-weight:900}
+@media(max-width:700px){
+#JellyInspectorDashboard .ji-settings-key-row{grid-template-columns:1fr}
+#JellyInspectorDashboard .ji-settings-key-row #settingsPaste{width:100%}
+#JellyInspectorDashboard .ji-settings-tmdb-help-head{flex-direction:column}
+#JellyInspectorDashboard .ji-settings-tmdb-link{width:100%;box-sizing:border-box}
+}
+/* JI057 TMDB SETTINGS UX END */
 </style>
 
 <script type="text/javascript">
@@ -6611,9 +6686,95 @@ async function resolveTmdbSeries(item,key,lang){const cache=readTmdbCache(),cach
 
 function setMessage(text,error=false){const e=$('scanMessage');e.textContent=text||'';e.hidden=!text;e.style.borderColor=error?'rgba(255,102,117,.3)':'rgba(255,179,71,.3)';e.style.background=error?'rgba(255,102,117,.1)':'rgba(255,179,71,.1)';e.style.color=error?'#ffabb3':'#ffc777'}
 function setSettingsMessage(text,error=false){const e=$('settingsMessage');e.textContent=text||'';e.hidden=!text;e.style.borderColor=error?'rgba(255,102,117,.3)':'rgba(64,217,139,.3)';e.style.background=error?'rgba(255,102,117,.1)':'rgba(64,217,139,.1)';e.style.color=error?'#ffabb3':'#76e7ad'}
-async function loadSettings(){try{setSettingsMessage('');const cfg=await pluginConfig();$('settingsTmdbApiKey').value=cfg.TmdbApiKey||'';$('settingsTmdbLanguage').value=cfg.TmdbLanguage||'es-ES'}catch(e){setSettingsMessage(e.message||'No se pudieron cargar los ajustes.',true)}}
-async function saveSettings(){const btn=$('settingsSave');try{btn.disabled=true;const cfg=await pluginConfig();cfg.TmdbApiKey=$('settingsTmdbApiKey').value.trim();cfg.TmdbLanguage=$('settingsTmdbLanguage').value||'es-ES';await saveConfig(cfg);setSettingsMessage('Ajustes guardados correctamente.')}catch(e){setSettingsMessage(e.message||'No se pudieron guardar los ajustes.',true)}finally{btn.disabled=false}}
-async function testSettings(){const btn=$('settingsTest');const key=$('settingsTmdbApiKey').value.trim(),lang=$('settingsTmdbLanguage').value||'es-ES';if(!key){setSettingsMessage('Introduce una API Key antes de probar la conexión.',true);return}try{btn.disabled=true;setSettingsMessage('Probando conexión con TMDb...');const result=await tmdb('/configuration',key,lang);if(!result)throw new Error('TMDb no devolvió una respuesta válida.');setSettingsMessage('Conexión con TMDb correcta.')}catch(e){setSettingsMessage(e.message||'No se pudo conectar con TMDb.',true)}finally{btn.disabled=false}}
+function setTmdbStatus(state,text){
+    const status=$('settingsTmdbStatus');
+    if(!status)return;
+    status.className='ji-settings-status '+(state||'neutral');
+    status.textContent=text||'Sin comprobar'
+}
+async function pasteTmdbApiKey(){
+    const input=$('settingsTmdbApiKey');
+
+    if(!navigator.clipboard||typeof navigator.clipboard.readText!=='function'){
+        setSettingsMessage('El navegador no permite leer el portapapeles aquí. Pega la clave manualmente con Ctrl+V.',true);
+        return
+    }
+
+    try{
+        const value=(await navigator.clipboard.readText()).trim();
+
+        if(!value){
+            setSettingsMessage('El portapapeles está vacío.',true);
+            return
+        }
+
+        input.removeAttribute('readonly');
+        input.value=value;
+        setTmdbStatus('neutral','Sin comprobar');
+        setSettingsMessage('API Key pegada. Pulsa Probar conexión para validarla.')
+    }catch(e){
+        setSettingsMessage('No se pudo leer el portapapeles. Pega la clave manualmente con Ctrl+V.',true)
+    }
+}
+async function loadSettings(){
+    try{
+        setSettingsMessage('');
+        const cfg=await pluginConfig();
+        $('settingsTmdbApiKey').value=cfg.TmdbApiKey||'';
+        $('settingsTmdbLanguage').value=cfg.TmdbLanguage||'es-ES';
+        setTmdbStatus('neutral',cfg.TmdbApiKey?'Sin comprobar':'Sin API Key')
+    }catch(e){
+        setTmdbStatus('invalid','No disponible');
+        setSettingsMessage(e.message||'No se pudieron cargar los ajustes.',true)
+    }
+}
+async function saveSettings(){
+    const btn=$('settingsSave');
+
+    try{
+        btn.disabled=true;
+        const cfg=await pluginConfig();
+        cfg.TmdbApiKey=$('settingsTmdbApiKey').value.trim();
+        cfg.TmdbLanguage=$('settingsTmdbLanguage').value||'es-ES';
+        await saveConfig(cfg);
+        setSettingsMessage('Ajustes guardados correctamente.')
+    }catch(e){
+        setSettingsMessage(e.message||'No se pudieron guardar los ajustes.',true)
+    }finally{
+        btn.disabled=false
+    }
+}
+async function testSettings(){
+    const btn=$('settingsTest');
+    const key=$('settingsTmdbApiKey').value.trim();
+    const lang=$('settingsTmdbLanguage').value||'es-ES';
+
+    if(!key){
+        setTmdbStatus('invalid','API no válida');
+        setSettingsMessage('Introduce una API Key antes de probar la conexión.',true);
+        return
+    }
+
+    try{
+        btn.disabled=true;
+        setTmdbStatus('checking','Comprobando...');
+        setSettingsMessage('Probando conexión con TMDb...');
+
+        const result=await tmdb('/configuration',key,lang);
+
+        if(!result){
+            throw new Error('TMDb no devolvió una respuesta válida.')
+        }
+
+        setTmdbStatus('valid','API válida');
+        setSettingsMessage('API válida. Conexión con TMDb correcta.')
+    }catch(e){
+        setTmdbStatus('invalid','API no válida');
+        setSettingsMessage(e.message||'No se pudo conectar con TMDb.',true)
+    }finally{
+        btn.disabled=false
+    }
+}
 function progress(value,text){const n=Math.max(0,Math.min(100,value));$('scanProgress').style.width=n+'%';$('scanPercent').textContent=Math.round(n)+'%';$('scanProgressText').textContent=text||''}
 function statusOf(s){if(s.missingEpisodes>=10||s.missingSeasons>=2||s.missingTmdb)return'critical';if(s.missingEpisodes||s.missingSeasons)return'warning';if(s.airing)return'airing';if(s.upcoming)return'upcoming';return'perfect'}
 function statusLabel(s){return{perfect:'Perfecta',warning:'Aviso',critical:'Crítica',airing:'En emisión',upcoming:'Próximamente'}[s]||s}
@@ -8736,7 +8897,10 @@ $('dashboardScanButtonBottom').addEventListener('click',()=>showView('scanner'))
 root.querySelectorAll('[data-dashboard-metric]').forEach(button=>button.addEventListener('click',()=>openDashboardMetric(button.dataset.dashboardMetric)));
 $('detailBack').addEventListener('click',()=>showView('series'));
 $('compareBack').addEventListener('click',()=>showView('series'));
-$('settingsSave').addEventListener('click',saveSettings);$('settingsTest').addEventListener('click',testSettings);
+$('settingsSave').addEventListener('click',saveSettings);
+$('settingsTest').addEventListener('click',testSettings);
+$('settingsPaste').addEventListener('click',pasteTmdbApiKey);
+$('settingsTmdbApiKey').addEventListener('input',()=>setTmdbStatus('neutral','Sin comprobar'));
 $('scanStart').addEventListener('click',scan);['scanSearch','scanStatus','scanSort'].forEach(id=>$(id).addEventListener(id==='scanSearch'?'input':'change',applyScanFilters));root.querySelectorAll('[data-scan-filter]').forEach(button=>button.addEventListener('click',()=>{const value=button.dataset.scanFilter;quickScanFilter=quickScanFilter===value?'all':value;root.querySelectorAll('[data-scan-filter]').forEach(x=>x.classList.toggle('active',x.dataset.scanFilter===quickScanFilter));$('scanStatus').value='all';applyScanFilters()}));$('scanCardsButton').onclick=()=>{scanView='cards';$('scanCardsButton').classList.add('active');$('scanTableButton').classList.remove('active');renderScan()};$('scanTableButton').onclick=()=>{scanView='table';$('scanTableButton').classList.add('active');$('scanCardsButton').classList.remove('active');renderScan()};$('scanCsv').onclick=()=>exportFile(false);$('scanExcel').onclick=()=>exportFile(true);['seriesSearch','seriesStatus','seriesSort'].forEach(id=>$(id).addEventListener(id==='seriesSearch'?'input':'change',renderSeriesView));
 const seriesViewNormal=$('seriesViewNormal');
 if(seriesViewNormal){
