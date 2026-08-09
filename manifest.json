@@ -8,6 +8,14 @@
     "category":  "General",
     "versions":  [
         {
+            "version": "0.2.1.1",
+            "changelog": "Fix clean-install packaging and include current bilingual ES/EN UI.",
+            "targetAbi": "10.11.8.0",
+            "sourceUrl": "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.1/JellyInspector_0.2.1.1.zip",
+            "checksum": "51529AE36A1FE56722790D4517E1ECE0",
+            "timestamp": "2026-08-09T15:06:42Z"
+        },
+        {
             "version": "0.2.1.0",
             "changelog": "Mejoras de interfaz bilingüe ES/EN, Centro de incidencias traducido y correcciones generales.",
             "targetAbi": "10.11.8.0",
