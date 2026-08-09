@@ -7,6 +7,14 @@
     "owner":  "pitu205",
     "category":  "General",
     "versions":  [
+        {
+            "version": "0.2.1.0",
+            "changelog": "Mejoras de interfaz bilingüe ES/EN, Centro de incidencias traducido y correcciones generales.",
+            "targetAbi": "10.11.8.0",
+            "sourceUrl": "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.0/JellyInspector_0.2.1.0.zip",
+            "checksum": "23BE8EE4853849B9839FE833533681FA",
+            "timestamp": "2026-08-09T15:02:27Z"
+        },
                      {
                          "version":  "0.2.0.0",
                          "changelog":  "Primera versión pública de JellyInspector.",
