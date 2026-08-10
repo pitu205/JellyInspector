@@ -15,7 +15,7 @@
 -------
 10. JellyInspector necesita una API Key de TMDb para que salgan las caratulas,Se utiliza para consultar series, temporadas, episodios y datos de emisión.
 Instrucciones:
-Crea una cuenta en TMDb. https://www.themoviedb.org/u/JellyInspector
+Crea una cuenta gratuita en TMDb. https://www.themoviedb.org/u/JellyInspector
 Ve a Perfil / Ajustes → API.
 Solicita una API Developer haciendo clic en el botón Solicitar API.
 Copia la API Key v3.
