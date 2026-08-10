@@ -11,9 +11,9 @@
 7. Instala **JellyInspector**.
 8. Reinicia Jellyfin.
  -----
-8. para desistalar el plugin ve a gestor de complementos entra en jellyinspector y da a desistalar, reinicia el servidor.
+9. para desistalar el plugin ve a gestor de complementos entra en jellyinspector y da a desistalar, reinicia el servidor.
 -------
-9. JellyInspector necesita una API Key de TMDb para que salgan las caratulas,Se utiliza para consultar series, temporadas, episodios y datos de emisión.
+10. JellyInspector necesita una API Key de TMDb para que salgan las caratulas,Se utiliza para consultar series, temporadas, episodios y datos de emisión.
 Instrucciones:
 Crea una cuenta en TMDb. https://www.themoviedb.org/u/JellyInspector
 Ve a Perfil / Ajustes → API.
