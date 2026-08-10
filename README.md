@@ -3,12 +3,13 @@
 ## Desde el repositorio de plugins de Jellyfin
 
 1. Abre **Panel de administración → Plugins → Repositorios**.
-2. Añade el repositorio de JellyInspector:https://raw.githubusercontent.com/pitu205/JellyInspector/main/manifest.json
-3. Guarda los cambios.
-4. reinicia Jellyfin,cierra del todo el servidor y ejecutalo de nuevo.
-5. Ve a **Complementos**.
-6. Instala **JellyInspector**.
-7. Reinicia Jellyfin.
+2. Añade el repositorio de JellyInspector:
+3. https://raw.githubusercontent.com/pitu205/JellyInspector/main/manifest.json
+4. Guarda los cambios.
+5. reinicia Jellyfin,cierra del todo el servidor y ejecutalo de nuevo.
+6. Ve a **Complementos**.
+7. Instala **JellyInspector**.
+8. Reinicia Jellyfin.
  -----
 8. para desistalar el plugin ve a gestor de complementos entra en jellyinspector y da a desistalar, reinicia el servidor.
 -------
