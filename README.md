@@ -11,7 +11,7 @@ https://raw.githubusercontent.com/pitu205/JellyInspector/main/manifest.json
 
 3. Guarda los cambios.
 4. reinicia Jellyfin,cierra del todo el servidor y ejecutalo de nuevo.
-5. Ve a **Catálogo**.
+5. Ve a **Complementos**.
 6. Instala **JellyInspector**.
 7. Reinicia Jellyfin.
 
