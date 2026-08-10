@@ -3,24 +3,24 @@
 ## Desde el repositorio de plugins de Jellyfin
 
 1. Abre **Panel de administración → Plugins → Repositorios**.
-2. Añade el repositorio de JellyInspector:
-
-```
-https://raw.githubusercontent.com/pitu205/JellyInspector/main/manifest.json
-```
-
+2. Añade el repositorio de JellyInspector:https://raw.githubusercontent.com/pitu205/JellyInspector/main/manifest.json
 3. Guarda los cambios.
 4. reinicia Jellyfin,cierra del todo el servidor y ejecutalo de nuevo.
 5. Ve a **Complementos**.
 6. Instala **JellyInspector**.
 7. Reinicia Jellyfin.
-
-8. Abre el plugin y ve a ajustes,pon tu api de TmDb(crea una cuenta gratis y en tu nombre pulsa ajustes/api y abajo del todo está.
+8. -----
+9. para desistalar el plugin ve a gestos de complementos entra en jellyinspector y da a desistalar, reinicia el servidor.
+-------
+10. JellyInspector necesita una API Key de TMDb para que salgan las caratulas,Se utiliza para consultar series, temporadas, episodios y datos de emisión.
+Instrucciones:
+Crea una cuenta en TMDb. https://www.themoviedb.org/u/JellyInspector
+Ve a Perfil / Ajustes → API.
+Solicita una API Developer haciendo clic en el botón Solicitar API.
+Copia la API Key v3.
+Pégala en JellyInspector y pulsa Probar conexión.
 
 ---
-para desistalar el plugin ve a gestos de complementos enyta en 
-jelly
-inspector y da a desistalar, reinicia el servidor.
 
 ## Compilación desde el código fuente
 
