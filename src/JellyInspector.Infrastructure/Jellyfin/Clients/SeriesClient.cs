@@ -48,13 +48,29 @@ public sealed class SeriesClient : ISeriesClient
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var librarySeries =
-                    await GetSeriesFromLibraryAsync(
-                        userId,
-                        libraryId,
-                        cancellationToken);
+                /* JI067A INVALID LIBRARY GUARD START */
+                try
+                {
+                    var librarySeries =
+                        await GetSeriesFromLibraryAsync(
+                            userId,
+                            libraryId,
+                            cancellationToken);
 
-                allSeries.AddRange(librarySeries);
+                    allSeries.AddRange(librarySeries);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(
+                        $"[JELLYFIN LIBRARY WARNING] " +
+                        $"Se omite biblioteca {libraryId}: " +
+                        $"{ex.Message}");
+                }
+                /* JI067A INVALID LIBRARY GUARD END */
             }
 
             return allSeries
