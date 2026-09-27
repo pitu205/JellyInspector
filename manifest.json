@@ -1,42 +1,44 @@
-{
-    "guid":  "7d3e3b70-29bc-4e51-b20f-68c416e73a8c",
-    "name":  "JellyInspector",
-    "overview":  "Analiza y supervisa bibliotecas de series en Jellyfin.",
-    "description":  "Detecta episodios y temporadas pendientes, compara la colecciÃ³n con TMDb y muestra el estado de la biblioteca mediante un panel integrado.",
-    "owner":  "pitu205",
-    "category":  "General",
-    "versions":  [
-                     {
-                         "version":  "0.2.2.0",
-                         "changelog":  "Interfaz de escaneo compacta, filtro de incidencias por defecto, progreso visible y cancelacion segura del escaneo.",
-                         "targetAbi":  "10.11.8.0",
-                         "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.2.0/JellyInspector_0.2.2.0.zip",
-                         "checksum":  "f00f84071ffed77dbc1cdfab0546f252",
-                         "timestamp":  "2026-09-27T11:34:24Z"
-                     },
-                     {
-                         "version":  "0.2.1.1",
-                         "changelog":  "Fix clean-install packaging and include current bilingual ES/EN UI.",
-                         "targetAbi":  "10.11.8.0",
-                         "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.1/JellyInspector_0.2.1.1.zip",
-                         "checksum":  "51529AE36A1FE56722790D4517E1ECE0",
-                         "timestamp":  "2026-08-09T15:06:42Z"
-                     },
-                     {
-                         "version":  "0.2.1.0",
-                         "changelog":  "Mejoras de interfaz bilingÃ¼e ES/EN, Centro de incidencias traducido y correcciones generales.",
-                         "targetAbi":  "10.11.8.0",
-                         "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.0/JellyInspector_0.2.1.0.zip",
-                         "checksum":  "23BE8EE4853849B9839FE833533681FA",
-                         "timestamp":  "2026-08-09T15:02:27Z"
-                     },
-                     {
-                         "version":  "0.2.0.0",
-                         "changelog":  "Primera versiÃ³n pÃºblica de JellyInspector.",
-                         "targetAbi":  "10.11.8.0",
-                         "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.0.0/JellyInspector_0.2.0.0.zip",
-                         "checksum":  "37812799ef908dc69ad3ea0349d52f0b",
-                         "timestamp":  "2026-08-06T16:45:42Z"
-                     }
-                 ]
-}
+[
+    {
+        "guid":  "7d3e3b70-29bc-4e51-b20f-68c416e73a8c",
+        "name":  "JellyInspector",
+        "overview":  "Analiza y supervisa bibliotecas de series en Jellyfin.",
+        "description":  "Detecta episodios y temporadas pendientes, compara la colecciÃ³n con TMDb y muestra el estado de la biblioteca mediante un panel integrado.",
+        "owner":  "pitu205",
+        "category":  "General",
+        "versions":  [
+                         {
+                             "version":  "0.2.2.0",
+                             "changelog":  "Interfaz de escaneo compacta, filtro de incidencias por defecto, progreso visible y cancelacion segura del escaneo.",
+                             "targetAbi":  "10.11.8.0",
+                             "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.2.0/JellyInspector_0.2.2.0.zip",
+                             "checksum":  "f00f84071ffed77dbc1cdfab0546f252",
+                             "timestamp":  "2026-09-27T11:34:24Z"
+                         },
+                         {
+                             "version":  "0.2.1.1",
+                             "changelog":  "Fix clean-install packaging and include current bilingual ES/EN UI.",
+                             "targetAbi":  "10.11.8.0",
+                             "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.1/JellyInspector_0.2.1.1.zip",
+                             "checksum":  "51529AE36A1FE56722790D4517E1ECE0",
+                             "timestamp":  "2026-08-09T15:06:42Z"
+                         },
+                         {
+                             "version":  "0.2.1.0",
+                             "changelog":  "Mejoras de interfaz bilingÃ¼e ES/EN, Centro de incidencias traducido y correcciones generales.",
+                             "targetAbi":  "10.11.8.0",
+                             "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.1.0/JellyInspector_0.2.1.0.zip",
+                             "checksum":  "23BE8EE4853849B9839FE833533681FA",
+                             "timestamp":  "2026-08-09T15:02:27Z"
+                         },
+                         {
+                             "version":  "0.2.0.0",
+                             "changelog":  "Primera versiÃ³n pÃºblica de JellyInspector.",
+                             "targetAbi":  "10.11.8.0",
+                             "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.0.0/JellyInspector_0.2.0.0.zip",
+                             "checksum":  "37812799ef908dc69ad3ea0349d52f0b",
+                             "timestamp":  "2026-08-06T16:45:42Z"
+                         }
+                     ]
+    }
+]
