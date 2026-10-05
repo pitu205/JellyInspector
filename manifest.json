@@ -8,6 +8,14 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "0.2.2.1",
+                             "changelog":  "Hotfix de compatibilidad con Jellyfin 10.11.11. Corrige un fallo que podía impedir el arranque del servidor al cargar JellyInspector.",
+                             "targetAbi":  "10.11.11.0",
+                             "sourceUrl":  "https://github.com/pitu205/JellyInspector/releases/download/v0.2.2.1/JellyInspector_0.2.2.1.zip",
+                             "checksum":  "cdb8c8eac81a8fcba02303c1e63f3a2a",
+                             "timestamp":  "2026-10-05T14:53:00Z"
+                         },
+                         {
                              "version":  "0.2.2.0",
                              "changelog":  "Interfaz de escaneo compacta, filtro de incidencias por defecto, progreso visible y cancelacion segura del escaneo.",
                              "targetAbi":  "10.11.8.0",

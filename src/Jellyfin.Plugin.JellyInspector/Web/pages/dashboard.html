@@ -33,7 +33,7 @@
         <div class="ji-about-info">
             <div>
                 <span><span class="ji064c-es">Versión</span><span class="ji064c-en">Version</span></span>
-                <strong>0.2.0.0</strong>
+                <strong>0.2.2.1</strong>
             </div>
 
             <div>
@@ -7500,6 +7500,30 @@ body > .ji054-quick-detail .ji054-quick-actions .ji054-quick-full {
 }
 
 /* JI072A END */
+
+/* JI073A VISUAL START */
+#JellyInspectorDashboard .ji073a-airdate{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    margin-left:10px;
+    padding:5px 9px;
+    border:1px solid rgba(255,184,76,.24);
+    border-radius:8px;
+    background:rgba(255,184,76,.08);
+    color:#ffc86a;
+    font-size:.72rem;
+    font-weight:800;
+    vertical-align:middle
+}
+
+@media(max-width:680px){
+    #JellyInspectorDashboard .ji073a-airdate{
+        margin-left:7px;
+        margin-top:6px
+    }
+}
+/* JI073A VISUAL END */
 </style>
 
 <script type="text/javascript">
@@ -7874,6 +7898,57 @@ function compressEpisodeNumbers(numbers){
     return '<span class="ji-episode-chip-list">'+chips+more+'</span>'
 }
 function compressSeasonNumbers(numbers){const sorted=[...new Set(numbers)].sort(function(a,b){return a-b});if(!sorted.length)return'';const ranges=[];let start=sorted[0],previous=sorted[0];for(let index=1;index<=sorted.length;index++){const current=sorted[index];if(current===previous+1){previous=current;continue}ranges.push(start===previous?'T'+start:'T'+start+'&ndash;T'+previous);start=current;previous=current}return ranges.join(' &middot; ')}
+/* JI073A START */
+function ji073aMissingEpisodeAirDate(series,seasonNumber,episodeNumber){
+    if(
+        !series ||
+        !Array.isArray(series.seasonDetails)
+    ){
+        return null;
+    }
+
+    const season=series.seasonDetails.find(function(item){
+        return Number(item.number)===Number(seasonNumber)
+    });
+
+    if(!season || !Array.isArray(season.episodes)){
+        return null;
+    }
+
+    const episode=season.episodes.find(function(item){
+        return (
+            Number(item.number)===Number(episodeNumber) &&
+            item.exists===false
+        )
+    });
+
+    return episode && episode.airDate
+        ? episode.airDate
+        : null
+}
+
+function ji073aSingleMissingDateHtml(series,seasonNumber,episodes){
+    if(!Array.isArray(episodes) || episodes.length!==1){
+        return ''
+    }
+
+    const airDate=ji073aMissingEpisodeAirDate(
+        series,
+        seasonNumber,
+        episodes[0]
+    );
+
+    if(!airDate){
+        return ''
+    }
+
+    return '<span class="ji073a-airdate">'+
+        '<span aria-hidden="true">&#128197;</span> '+
+        ji064eText('Emitido ','Aired ')+
+        html(formatDate(airDate))+
+    '</span>'
+}
+/* JI073A END */
 function cardIssuesHtml(s){if(s&&s._scanned===false)return '<div class="ji-cardx-no-issues">'+ji064eText('Sin analizar. Pulsa ESCANEAR SERIE para obtener el estado.','Not analyzed. Click SCAN SERIES to get its status.')+'</div>';const issues=Array.isArray(s.issues)?s.issues:[],seasonGroups={},completeSeasons=[],otherIssues=[];issues.forEach(function(issue){const text=String(issue||'');let match=text.match(/^Falta la temporada (\d+) completa$/i);if(match){completeSeasons.push(Number(match[1]));return}match=text.match(/^Falta T(\d+)E(\d+)/i);if(match){const season=Number(match[1]),episode=Number(match[2]);if(!seasonGroups[season])seasonGroups[season]=[];seasonGroups[season].push(episode);return}otherIssues.push(text)});const completeSet=new Set(completeSeasons);Object.keys(seasonGroups).forEach(function(season){if(completeSet.has(Number(season)))delete seasonGroups[season]});const upcoming=(function(){
     const season=Number(s.nextSeasonNumber||0);
     const episode=Number(s.nextEpisodeNumber||0);
@@ -7915,7 +7990,37 @@ function cardIssuesHtml(s){if(s&&s._scanned===false)return '<div class="ji-cardx
             (subtitle?'<span>'+html(subtitle)+'</span>':'')+
         '</div>'+
     '</div>';
-})();const grouped=Object.keys(seasonGroups).map(Number).sort(function(a,b){return a-b}).map(function(season){const episodes=seasonGroups[season],episodeWord=ji064eEnglish()?(episodes.length===1?'episode':'episodes'):pluralEs(episodes.length,'episodio','episodios'),pendingLabel=ji064eEnglish()?'Pending':pluralEs(episodes.length,'Pendiente','Pendientes');return '<div class="ji-cardx-season"><div class="ji-cardx-season-head"><span class="ji-cardx-icon">&#128193;</span><strong>'+ji064eText('Temporada ','Season ')+season+'</strong><span class="ji-cardx-chip">'+episodes.length+' '+episodeWord+'</span></div><div class="ji-cardx-episodes"><strong>'+pendingLabel+':</strong> '+compressEpisodeNumbers(episodes)+'</div></div>'}).join('');const uniqueComplete=[...new Set(completeSeasons)].sort(function(a,b){return a-b});const complete=uniqueComplete.length===1?'<div class="ji-cardx-single-missing"><span class="ji-cardx-missing-chip">'+ji064eText('Temporada faltante','Missing season')+'</span><strong>'+ji064eText('Falta la temporada ','Season ')+uniqueComplete[0]+ji064eText('.',' is missing.')+'</strong></div>':uniqueComplete.length>1?'<div class="ji-cardx-complete-seasons"><div class="ji-cardx-complete-head"><span class="ji-cardx-icon">&#128193;</span><strong>'+ji064eText('Temporadas completas faltantes','Entire seasons missing')+'</strong><span class="ji-cardx-chip">'+uniqueComplete.length+' '+(ji064eEnglish()?(uniqueComplete.length===1?'season':'seasons'):'temporadas')+'</span></div><div class="ji-cardx-complete-ranges">'+compressSeasonNumbers(uniqueComplete)+'</div></div>':'';const other=otherIssues.slice(0,3).map(function(issue){return '<div class="ji-cardx-other-issue">'+html(issue)+'</div>'}).join('');return upcoming+grouped+complete+other||'<div class="ji-cardx-no-issues">&#10003; '+ji064eText('Sin incidencias','No issues')+'</div>'}
+})();const grouped=Object.keys(seasonGroups)
+    .map(Number)
+    .sort(function(a,b){return a-b})
+    .map(function(season){
+        const episodes=seasonGroups[season];
+        const episodeWord=ji064eEnglish()
+            ?(episodes.length===1?'episode':'episodes')
+            :pluralEs(episodes.length,'episodio','episodios');
+        const pendingLabel=ji064eEnglish()
+            ?'Pending'
+            :pluralEs(episodes.length,'Pendiente','Pendientes');
+        const singleDate=ji073aSingleMissingDateHtml(
+            s,
+            season,
+            episodes
+        );
+
+        return '<div class="ji-cardx-season">'+
+            '<div class="ji-cardx-season-head">'+
+                '<span class="ji-cardx-icon">&#128193;</span>'+
+                '<strong>'+ji064eText('Temporada ','Season ')+season+'</strong>'+
+                '<span class="ji-cardx-chip">'+episodes.length+' '+episodeWord+'</span>'+
+            '</div>'+
+            '<div class="ji-cardx-episodes">'+
+                '<strong>'+pendingLabel+':</strong> '+
+                compressEpisodeNumbers(episodes)+
+                singleDate+
+            '</div>'+
+        '</div>'
+    }).join('');
+const uniqueComplete=[...new Set(completeSeasons)].sort(function(a,b){return a-b});const complete=uniqueComplete.length===1?'<div class="ji-cardx-single-missing"><span class="ji-cardx-missing-chip">'+ji064eText('Temporada faltante','Missing season')+'</span><strong>'+ji064eText('Falta la temporada ','Season ')+uniqueComplete[0]+ji064eText('.',' is missing.')+'</strong></div>':uniqueComplete.length>1?'<div class="ji-cardx-complete-seasons"><div class="ji-cardx-complete-head"><span class="ji-cardx-icon">&#128193;</span><strong>'+ji064eText('Temporadas completas faltantes','Entire seasons missing')+'</strong><span class="ji-cardx-chip">'+uniqueComplete.length+' '+(ji064eEnglish()?(uniqueComplete.length===1?'season':'seasons'):'temporadas')+'</span></div><div class="ji-cardx-complete-ranges">'+compressSeasonNumbers(uniqueComplete)+'</div></div>':'';const other=otherIssues.slice(0,3).map(function(issue){return '<div class="ji-cardx-other-issue">'+html(issue)+'</div>'}).join('');return upcoming+grouped+complete+other||'<div class="ji-cardx-no-issues">&#10003; '+ji064eText('Sin incidencias','No issues')+'</div>'}
 function cardStatusHtml(s){
     if(s&&s._scanned===false){
         return '<span class="ji-cardx-status">'+ji064eText('Sin escanear','Not scanned')+'</span>'
